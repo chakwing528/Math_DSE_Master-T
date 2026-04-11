@@ -76,7 +76,12 @@ function showTopicScreen() {
 function backToLevelSelection() {
     document.getElementById('appContainer').classList.add('hidden');
     document.getElementById('endScreen').classList.add('hidden');
-    selectTopic(currentTopic);
+    
+    if (currentTopic === 'global_mixed') {
+        showTopicScreen();
+    } else {
+        selectTopic(currentTopic);
+    }
 }
 
 function backToLevelSelectionFromQuiz() { document.getElementById('confirmModal').classList.remove('hidden'); }
@@ -89,7 +94,7 @@ function selectTopic(topic) {
     document.getElementById('topicScreen').classList.add('hidden');
     document.getElementById('startScreen').classList.remove('hidden');
     
-    // 先隱藏所有按鈕 ID
+    // 先隱藏所有難度按鈕 ID
     const allBtnIds = ['btnL1', 'btnL2', 'btnL3', 'btnL2A', 'btnL2B', 'btnL3A', 'btnL3B'];
     allBtnIds.forEach(id => {
         const b = document.getElementById(id);
@@ -125,8 +130,87 @@ function selectTopic(topic) {
     });
 }
 
+// --- 跨課題綜合挑戰生成引擎 ---
+function startGlobalMixed(level) {
+    try {
+        currentTopic = 'global_mixed';
+        currentTopicName = '跨課題綜合挑戰';
+        currentLevelPref = level;
+        document.getElementById('questionInstruction').classList.add('hidden');
+
+        // 定義所有課題庫清單
+        let topicsList = ['indices', 'factorization', 'rounding', 'identities', 'fractions', 'binary', 'expansion'];
+        
+        // 保證每一個課題都能最少出現一次，自動將題數提升至課題數之上 (最少7題)
+        let numQ = Math.max(totalQuestionsConfig, topicsList.length);
+
+        // 1. 保證每個課題至少出題一次
+        let selectedTopics = [...topicsList];
+
+        // 2. 如果設定題數大於課題數 (如選 10 題)，剩餘的題數則隨機填充
+        while (selectedTopics.length < numQ) {
+            selectedTopics.push(topicsList[Math.floor(Math.random() * topicsList.length)]);
+        }
+
+        // 3. 隨機打亂所有選中的課題順序
+        selectedTopics = shuffleArray(selectedTopics);
+
+        questionBank = [];
+        selectedTopics.forEach((t, idx) => {
+            let qArr = [];
+            let lvl = String(level);
+            
+            // 特別處理因式分解的 A/B 分支設定 (隨機抽籤)
+            if (t === 'factorization') {
+                if (lvl === '2') lvl = Math.random() > 0.5 ? '2a' : '2b';
+                if (lvl === '3') lvl = Math.random() > 0.5 ? '3a' : '3b';
+            }
+            
+            // 每次生成一題對應難度的題目
+            if (t === 'indices') qArr = generateIndicesQuestions(1, lvl);
+            else if (t === 'factorization') qArr = generateFactorizationQuestions(1, lvl);
+            else if (t === 'rounding') qArr = generateRoundingQuestions(1, lvl);
+            else if (t === 'identities') qArr = generateIdentitiesQuestions(1, lvl);
+            else if (t === 'fractions') qArr = generateFractionsQuestions(1, lvl);
+            else if (t === 'binary') qArr = generateBinaryQuestions(1, lvl);
+            else if (t === 'expansion') qArr = generateExpansionQuestions(1, lvl);
+
+            if (qArr && qArr.length > 0) {
+                qArr[0].id = idx + 1; // 連續修正題號
+                questionBank.push(qArr[0]);
+            }
+        });
+
+        // 設定好題目後切換畫面
+        currentQuestionIndex = 0; score = 0; updateScoreDisplay();
+        document.getElementById('topicScreen').classList.add('hidden');
+        document.getElementById('startScreen').classList.add('hidden');
+        document.getElementById('endScreen').classList.add('hidden');
+        document.getElementById('appContainer').classList.remove('hidden');
+
+        const btn = document.getElementById('submitRecordBtn');
+        if (btn) {
+            btn.disabled = false; btn.textContent = "傳送成績";
+            btn.classList.remove('bg-slate-400'); btn.classList.add('bg-green-600');
+        }
+        const statusText = document.getElementById('submitStatus');
+        if (statusText) statusText.classList.add('hidden');
+
+        loadQuestion();
+    } catch (error) {
+        alert("🚨 系統錯誤！無法讀取跨課題題庫。\n原因：" + error.message);
+        console.error(error);
+    }
+}
+
+// --- 單一課題開始遊戲與題目載入 ---
 function startGame(levelPref) {
     try {
+        if (currentTopic === 'global_mixed') {
+            startGlobalMixed(levelPref);
+            return;
+        }
+
         currentLevelPref = levelPref;
         document.getElementById('questionInstruction').classList.add('hidden');
         
@@ -158,7 +242,14 @@ function loadQuestion() {
     attemptsCount = 0; 
     const q = questionBank[currentQuestionIndex];
     document.getElementById('topicBadge').textContent = q.topic;
-    document.getElementById('levelBadge').innerHTML = `難度: ${q.level}`;
+    
+    // 若為跨課題綜合挑戰，修改難度徽章的文字顯示
+    if (currentTopic === 'global_mixed') {
+        document.getElementById('levelBadge').innerHTML = `綜合挑戰 (難度: ${currentLevelPref})`;
+    } else {
+        document.getElementById('levelBadge').innerHTML = `難度: ${q.level}`;
+    }
+    
     document.getElementById('progressText').textContent = `完成 ${currentQuestionIndex}/${questionBank.length}`;
     hideFeedback();
     document.getElementById('questionText').innerHTML = q.question;
@@ -286,7 +377,7 @@ function submitToGoogleSheet() {
     btn.disabled = true; btn.textContent = "傳送中..."; btn.classList.add('opacity-50');
     
     let displayLevel = currentLevelPref === 'mixed' ? '綜合挑戰' : currentLevelPref.toString().toUpperCase();
-    let totalScoreVal = totalQuestionsConfig * 10;
+    let totalScoreVal = questionBank.length * 10;
     let percentageVal = ((score / totalScoreVal) * 100).toFixed(0) + "%";
 
     const formData = new URLSearchParams();
@@ -328,6 +419,7 @@ window.closeConfirmModal = closeConfirmModal;
 window.confirmBackToLevelSelection = confirmBackToLevelSelection;
 window.selectTopic = selectTopic;
 window.startGame = startGame;
+window.startGlobalMixed = startGlobalMixed;
 window.submitToGoogleSheet = submitToGoogleSheet;
 
 // --- 初始化載入 ---
