@@ -166,6 +166,11 @@ function startGlobalMixed(level) {
                 if (lvl === '3') lvl = Math.random() > 0.5 ? '3a' : '3b';
             }
             
+            // 🌟 修正：特別處理通分母 (只有程度 1 和 2，沒有程度 3)
+            if (t === 'fractions' && lvl === '3') {
+                lvl = '2'; // 強制降階至最高支援難度
+            }
+            
             // 每次生成一題對應難度的題目
             if (t === 'indices') qArr = generateIndicesQuestions(1, lvl);
             else if (t === 'factorization') qArr = generateFactorizationQuestions(1, lvl);
