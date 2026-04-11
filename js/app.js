@@ -1,17 +1,27 @@
 // js/app.js
 
 // ==========================================
-// 🚨 老師設定區：已整合專屬 Google Web App URL
+// 🚨 老師設定區：請填寫你部署後的 Google Web App URL
 // ==========================================
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw_h7rVev1VtAuPK4BFGR4i3lLMC2dGH_X6lkeB5IHZNHWPSBcQtFGNg0U9ZEteZMs/exec"; 
 
-// --- 預設座右銘 (如果 Google Sheet 連線失敗或尚未設定時的備用題庫) ---
+// --- 預設備用設定 (若網路不穩或未讀取到 Google Sheet 時使用) ---
 const motivationalQuotes = [
-    "未來的你，必定感激今天努力的自己。", "默默耕耘，總有收穫。", "答應自己，每天堅持多 1 分鐘。", "今天的累積，是明天的底氣。", 
-    "每天進步一點點，時間會看見。", "聚沙成塔，滴水穿石。", "腳踏實地，每一步都算數。", "成功沒有捷徑，只有每天的堅持。"
+    "未來的你，必定感激今天努力的自己。", "默默耕耘，總有收穫。", "答應自己，每天堅持多 1 分鐘。", "今天的累積，是明天的底氣。"
 ];
 
-// --- 全局變數 ---
+// 根據 Canvas 提供的「課題設定表.csv」建立預設邏輯
+const fallbackConfigs = {
+    'indices': { name: '指數定律', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S1', desc: '只有 1 個運算步驟<br>鞏固單一法則。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S3', desc: '只有 2 個運算步驟<br>學習法則轉換。' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S3、DSE', desc: '包含 2 個變數<br>嚴格只有 2 步。' } ] },
+    'factorization': { name: '因式分解', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S2', desc: '提公因式<br>學習抽出共同因子。' }, { id: 'L2A', title: '⭐⭐ 程度 2A', badge: 'S2', desc: '一元二次公式分解<br>單一變數完全平方與平方差。' }, { id: 'L2B', title: '⭐⭐ 程度 2B', badge: 'S2', desc: '二元二次公式分解<br>雙變數完全平方與平方差。' }, { id: 'L3A', title: '⭐⭐⭐ 程度 3A', badge: 'S3、DSE', desc: '一元二次因式分解<br>單變數十字相乘法。' }, { id: 'L3B', title: '⭐⭐⭐ 程度 3B', badge: 'S3、DSE', desc: '二元二次因式分解<br>包含雙變數的十字相乘。' } ] },
+    'rounding': { name: '近似值與捨入', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S1、DSE', desc: '基本捨入<br>小數點與有效數字的基本四捨五入。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S1、DSE', desc: '上捨入與下捨入<br>進階要求：強制進位或捨去。' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S1、DSE', desc: '綜合應用<br>包含前導零小數及大整數陷阱。' } ] },
+    'identities': { name: '恆等式', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S2', desc: '展開與比較係數<br>基礎一元一次恆等式。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S2、DSE', desc: '二次恆等式<br>進階代入與比較係數。' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S2、DSE', desc: '比例問題<br>求取多個未知數的比例。' } ] },
+    'fractions': { name: '通分母', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S2、DSE', desc: '分母為一元一次<br>分子為常數。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S4', desc: '分母為一元二次<br>需先因式分解再通分母。' } ] },
+    'binary': { name: '二進制', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S3、DSE', desc: '二進制轉十進制<br>只有加法。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S3、DSE', desc: '十進制轉二進制<br>只有加法。' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S3、DSE', desc: '綜合轉換<br>包含加法與減法。' } ] },
+    'expansion': { name: '恆等式的展開', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S2', desc: '展開 (x+a)² 或 (x+a)(x-a)<br>基礎展開。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S3、DSE', desc: '展開 (bx+a)² 或 (bx+a)(bx-a)<br>b 為正整數。' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S3、DSE', desc: '展開 (bx+a)² 或 (bx+a)(bx-a)<br>a 與 b 皆可為負數。' } ] }
+};
+
+// --- 全局狀態 ---
 let questionBank = [];
 let currentQuestionIndex = 0;
 let score = 0;
@@ -20,28 +30,27 @@ let currentLevelPref = 1;
 let currentTopic = 'indices'; 
 let currentTopicName = '指數定律';
 let totalQuestionsConfig = 3; 
-
-// 線上動態載入的座右銘與獎勵清單
 let dynamicQuotes = [];
+let dynamicTopicConfig = [];
 
-// --- 動態從 Google Sheet 抓取座右銘與機率 (doGet) ---
-async function fetchQuotes() {
+// --- 動態從 Google Sheet 抓取設定 (doGet) ---
+async function fetchConfig() {
     try {
         if (GOOGLE_SCRIPT_URL && !GOOGLE_SCRIPT_URL.includes("請在此貼上")) {
-            // 使用 fetch 呼叫 Apps Script 的 doGet
             const response = await fetch(GOOGLE_SCRIPT_URL);
             const data = await response.json();
-            if (Array.isArray(data) && data.length > 0) {
-                dynamicQuotes = data;
-                console.log("✅ 成功從 Google Sheet 載入座右銘與獎勵機制！");
+            if (data && typeof data === 'object') {
+                if (data.quotes) dynamicQuotes = data.quotes;
+                if (data.topicConfig) dynamicTopicConfig = data.topicConfig;
+                console.log("✅ 成功從統一 Google Sheet 載入座右銘與課題設定！");
             }
         }
     } catch (e) {
-        console.warn("⚠️ 讀取線上座右銘失敗，將使用備用題庫。");
+        console.warn("⚠️ 讀取設定失敗，將使用系統備用設定。");
     }
 }
 
-// --- 設定題數 ---
+// --- UI 控制與導航 ---
 function setQuestionNum(num) {
     totalQuestionsConfig = num;
     document.querySelectorAll('.num-btn').forEach(btn => {
@@ -57,7 +66,6 @@ function setQuestionNum(num) {
     if (displayQ) displayQ.textContent = num;
 }
 
-// --- 畫面導航函數 ---
 function showTopicScreen() {
     document.getElementById('topicScreen').classList.remove('hidden');
     document.getElementById('startScreen').classList.add('hidden');
@@ -71,223 +79,136 @@ function backToLevelSelection() {
     selectTopic(currentTopic);
 }
 
-function backToLevelSelectionFromQuiz() {
-    document.getElementById('confirmModal').classList.remove('hidden');
-}
+function backToLevelSelectionFromQuiz() { document.getElementById('confirmModal').classList.remove('hidden'); }
+function closeConfirmModal() { document.getElementById('confirmModal').classList.add('hidden'); }
+function confirmBackToLevelSelection() { closeConfirmModal(); backToLevelSelection(); }
 
-function closeConfirmModal() {
-    document.getElementById('confirmModal').classList.add('hidden');
-}
-
-function confirmBackToLevelSelection() {
-    closeConfirmModal();
-    backToLevelSelection();
-}
-
-// --- 選擇課題與難度設定 ---
+// --- 選擇課題並動態生成難度按鈕 ---
 function selectTopic(topic) {
     currentTopic = topic;
     document.getElementById('topicScreen').classList.add('hidden');
     document.getElementById('startScreen').classList.remove('hidden');
     
-    const btnL1 = document.getElementById('btnL1');
-    const btnL2 = document.getElementById('btnL2');
-    const btnL3 = document.getElementById('btnL3');
-    const btnL2A = document.getElementById('btnL2A');
-    const btnL2B = document.getElementById('btnL2B');
-    const btnL3A = document.getElementById('btnL3A');
-    const btnL3B = document.getElementById('btnL3B');
+    // 先隱藏所有按鈕 ID
+    const allBtnIds = ['btnL1', 'btnL2', 'btnL3', 'btnL2A', 'btnL2B', 'btnL3A', 'btnL3B'];
+    allBtnIds.forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.classList.add('hidden');
+    });
 
-    // 隱藏所有按鈕
-    [btnL1, btnL2, btnL3, btnL2A, btnL2B, btnL3A, btnL3B].forEach(b => { if(b) b.classList.add('hidden'); });
+    let config = fallbackConfigs[topic];
+    if (!config) return;
 
-    const badges = {
-        'L1_S1': '<div class="mt-1"><span class="inline-block px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-md font-bold">S1</span></div>',
-        'L1_S2': '<div class="mt-1"><span class="inline-block px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-md font-bold">S2</span></div>',
-        'L1_S1DSE': '<div class="mt-1"><span class="inline-block px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-md font-bold">S1、DSE</span></div>',
-        'L1_S3DSE': '<div class="mt-1"><span class="inline-block px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-md font-bold">S3、DSE</span></div>',
-        'L2_S2': '<div class="mt-1"><span class="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-md font-bold">S2</span></div>',
-        'L2_S3': '<div class="mt-1"><span class="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-md font-bold">S3</span></div>',
-        'L2_S4': '<div class="mt-1"><span class="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-md font-bold">S4</span></div>',
-        'L2_S1DSE': '<div class="mt-1"><span class="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-md font-bold">S1、DSE</span></div>',
-        'L2_S2DSE': '<div class="mt-1"><span class="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-md font-bold">S2、DSE</span></div>',
-        'L2_S3DSE': '<div class="mt-1"><span class="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-md font-bold">S3、DSE</span></div>',
-        'L3_S1DSE': '<div class="mt-1"><span class="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-md font-bold">S1、DSE</span></div>',
-        'L3_S2DSE': '<div class="mt-1"><span class="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-md font-bold">S2、DSE</span></div>',
-        'L3_S3DSE': '<div class="mt-1"><span class="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-md font-bold">S3、DSE</span></div>'
-    };
+    currentTopicName = config.name;
+    document.getElementById('levelTitle').textContent = config.name + ' - 請選擇難度';
 
-    if (topic === 'indices') {
-        currentTopicName = '指數定律'; document.getElementById('levelTitle').textContent = '指數定律 - 請選擇難度';
-        btnL1.classList.remove('hidden'); btnL1.querySelector('.font-bold').innerHTML = '⭐ 程度 1' + badges['L1_S1']; document.getElementById('descL1').innerHTML = '只有 1 個運算步驟<br>鞏固單一法則。';
-        btnL2.classList.remove('hidden'); btnL2.querySelector('.font-bold').innerHTML = '⭐⭐ 程度 2' + badges['L2_S3']; document.getElementById('descL2').innerHTML = '只有 2 個運算步驟<br>學習法則轉換。';
-        btnL3.classList.remove('hidden'); btnL3.querySelector('.font-bold').innerHTML = '⭐⭐⭐ 程度 3' + badges['L3_S3DSE']; document.getElementById('descL3').innerHTML = '包含 2 個變數<br>嚴格只有 2 步。';
-    } else if (topic === 'factorization') {
-        currentTopicName = '因式分解'; document.getElementById('levelTitle').textContent = '因式分解 - 請選擇難度';
-        btnL1.classList.remove('hidden'); btnL1.querySelector('.font-bold').innerHTML = '⭐ 程度 1' + badges['L1_S2']; document.getElementById('descL1').innerHTML = '提公因式<br>學習抽出共同因子。';
-        btnL2A.classList.remove('hidden'); btnL2A.querySelector('.font-bold').innerHTML = '⭐⭐ 程度 2A' + badges['L2_S2']; btnL2A.lastElementChild.innerHTML = '一元二次公式分解<br>單一變數完全平方與平方差。';
-        btnL2B.classList.remove('hidden'); btnL2B.querySelector('.font-bold').innerHTML = '⭐⭐ 程度 2B' + badges['L2_S2']; btnL2B.lastElementChild.innerHTML = '二元二次公式分解<br>雙變數完全平方與平方差。';
-        btnL3A.classList.remove('hidden'); btnL3A.querySelector('.font-bold').innerHTML = '⭐⭐⭐ 程度 3A' + badges['L3_S3DSE']; btnL3A.lastElementChild.innerHTML = '一元二次因式分解<br>單變數十字相乘法。';
-        btnL3B.classList.remove('hidden'); btnL3B.querySelector('.font-bold').innerHTML = '⭐⭐⭐ 程度 3B' + badges['L3_S3DSE']; btnL3B.lastElementChild.innerHTML = '二元二次因式分解<br>包含雙變數的十字相乘。';
-    } else if (topic === 'rounding') {
-        currentTopicName = '近似值與捨入'; document.getElementById('levelTitle').textContent = '近似值與捨入 - 請選擇難度';
-        btnL1.classList.remove('hidden'); btnL1.querySelector('.font-bold').innerHTML = '⭐ 程度 1' + badges['L1_S1DSE']; document.getElementById('descL1').innerHTML = '基本捨入<br>小數點與有效數字的基本四捨五入。';
-        btnL2.classList.remove('hidden'); btnL2.querySelector('.font-bold').innerHTML = '⭐⭐ 程度 2' + badges['L2_S1DSE']; document.getElementById('descL2').innerHTML = '上捨入與下捨入<br>進階要求：強制進位或捨去。';
-        btnL3.classList.remove('hidden'); btnL3.querySelector('.font-bold').innerHTML = '⭐⭐⭐ 程度 3' + badges['L3_S1DSE']; document.getElementById('descL3').innerHTML = '綜合應用<br>包含前導零小數及大整數陷阱。';
-    } else if (topic === 'identities') {
-        currentTopicName = '恆等式'; document.getElementById('levelTitle').textContent = '恆等式 - 請選擇難度';
-        btnL1.classList.remove('hidden'); btnL1.querySelector('.font-bold').innerHTML = '⭐ 程度 1' + badges['L1_S2']; document.getElementById('descL1').innerHTML = '展開與比較係數<br>基礎一元一次恆等式。';
-        btnL2.classList.remove('hidden'); btnL2.querySelector('.font-bold').innerHTML = '⭐⭐ 程度 2' + badges['L2_S2DSE']; document.getElementById('descL2').innerHTML = '二次恆等式<br>進階代入與比較係數。';
-        btnL3.classList.remove('hidden'); btnL3.querySelector('.font-bold').innerHTML = '⭐⭐⭐ 程度 3' + badges['L3_S2DSE']; document.getElementById('descL3').innerHTML = '比例問題<br>求取多個未知數的比例。';
-    } else if (topic === 'fractions') {
-        currentTopicName = '通分母'; document.getElementById('levelTitle').textContent = '通分母 - 請選擇難度';
-        btnL1.classList.remove('hidden'); btnL1.querySelector('.font-bold').innerHTML = '⭐ 程度 1' + badges['L1_S2DSE']; document.getElementById('descL1').innerHTML = '分母為一元一次<br>分子為常數。';
-        btnL2.classList.remove('hidden'); btnL2.querySelector('.font-bold').innerHTML = '⭐⭐ 程度 2' + badges['L2_S4']; document.getElementById('descL2').innerHTML = '分母為一元二次<br>需先因式分解再通分母。';
-    } else if (topic === 'binary') {
-        currentTopicName = '二進制'; document.getElementById('levelTitle').textContent = '二進制 - 請選擇難度';
-        btnL1.classList.remove('hidden'); btnL1.querySelector('.font-bold').innerHTML = '⭐ 程度 1' + badges['L1_S3DSE']; document.getElementById('descL1').innerHTML = '二進制轉十進制<br>只有加法。';
-        btnL2.classList.remove('hidden'); btnL2.querySelector('.font-bold').innerHTML = '⭐⭐ 程度 2' + badges['L2_S3DSE']; document.getElementById('descL2').innerHTML = '十進制轉二進制<br>只有加法。';
-        btnL3.classList.remove('hidden'); btnL3.querySelector('.font-bold').innerHTML = '⭐⭐⭐ 程度 3' + badges['L3_S3DSE']; document.getElementById('descL3').innerHTML = '綜合轉換<br>包含加法與減法。';
-    }
+    config.levels.forEach(lvl => {
+        let title = lvl.title, badge = lvl.badge, desc = lvl.desc;
+        
+        // 優先套用 Google Sheet 的自定義內容
+        if (dynamicTopicConfig && dynamicTopicConfig.length > 0) {
+            let custom = dynamicTopicConfig.find(c => c.topic === topic && c.levelId === lvl.id);
+            if (custom) {
+                if (custom.title) title = custom.title;
+                if (custom.badge) badge = custom.badge;
+                if (custom.desc) desc = custom.desc;
+            }
+        }
+
+        const btn = document.getElementById('btn' + lvl.id);
+        if (btn) {
+            btn.classList.remove('hidden');
+            let colorClass = lvl.id.includes('1') ? 'bg-green-100 text-green-700' : (lvl.id.includes('2') ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700');
+            btn.querySelector('.font-bold').innerHTML = title + `<div class="mt-1"><span class="inline-block px-2 py-0.5 ${colorClass} text-xs rounded-md font-bold">${badge}</span></div>`;
+            btn.lastElementChild.innerHTML = desc;
+        }
+    });
 }
 
-// --- 開始遊戲與題目載入 ---
 function startGame(levelPref) {
     try {
         currentLevelPref = levelPref;
         document.getElementById('questionInstruction').classList.add('hidden');
         
+        // 分流至各題庫生成器
         if (currentTopic === 'indices') questionBank = generateIndicesQuestions(totalQuestionsConfig, currentLevelPref); 
         else if (currentTopic === 'factorization') questionBank = generateFactorizationQuestions(totalQuestionsConfig, currentLevelPref); 
         else if (currentTopic === 'rounding') questionBank = generateRoundingQuestions(totalQuestionsConfig, currentLevelPref);
         else if (currentTopic === 'identities') questionBank = generateIdentitiesQuestions(totalQuestionsConfig, currentLevelPref);
         else if (currentTopic === 'fractions') questionBank = generateFractionsQuestions(totalQuestionsConfig, currentLevelPref);
         else if (currentTopic === 'binary') questionBank = generateBinaryQuestions(totalQuestionsConfig, currentLevelPref);
+        else if (currentTopic === 'expansion') questionBank = generateExpansionQuestions(totalQuestionsConfig, currentLevelPref);
         
-        currentQuestionIndex = 0;
-        score = 0;
-        updateScoreDisplay();
-        
+        currentQuestionIndex = 0; score = 0; updateScoreDisplay();
         document.getElementById('startScreen').classList.add('hidden');
-        document.getElementById('endScreen').classList.add('hidden');
         document.getElementById('appContainer').classList.remove('hidden');
         
         const btn = document.getElementById('submitRecordBtn');
-        btn.disabled = false;
-        btn.textContent = "傳送成績";
-        btn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-slate-400');
-        btn.classList.add('bg-green-600', 'hover:bg-green-700');
+        btn.disabled = false; btn.textContent = "傳送成績";
+        btn.classList.remove('bg-slate-400'); btn.classList.add('bg-green-600');
         document.getElementById('submitStatus').classList.add('hidden');
         
         loadQuestion();
     } catch (error) {
-        alert("🚨 系統錯誤！\n\n無法讀取題庫。\n錯誤原因：" + error.message);
-        console.error(error);
+        alert("🚨 系統錯誤！無法讀取題庫。\n原因：" + error.message);
     }
 }
 
 function loadQuestion() {
     attemptsCount = 0; 
     const q = questionBank[currentQuestionIndex];
-    
     document.getElementById('topicBadge').textContent = q.topic;
     document.getElementById('levelBadge').innerHTML = `難度: ${q.level}`;
     document.getElementById('progressText').textContent = `完成 ${currentQuestionIndex}/${questionBank.length}`;
-
     hideFeedback();
-
-    const questionContainer = document.getElementById('questionText');
-    questionContainer.innerHTML = q.question;
+    document.getElementById('questionText').innerHTML = q.question;
 
     const optionsGrid = document.getElementById('optionsGrid');
     optionsGrid.innerHTML = ''; 
-    
-    q.options.forEach((opt, index) => {
+    q.options.forEach(opt => {
         const btn = document.createElement('button');
         btn.className = 'option-btn relative p-3 sm:p-4 bg-white border-2 border-slate-200 rounded-xl text-base sm:text-lg text-slate-700 font-medium hover:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100 flex items-center gap-3 text-left w-full overflow-hidden';
         btn.onclick = () => handleAnswer(opt, btn);
-        
-        const label = document.createElement('span');
-        label.className = 'w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0';
-        label.textContent = opt.id;
-        
-        const mathContent = document.createElement('span');
-        mathContent.className = 'overflow-x-auto math-scroll max-w-full flex-1 py-1';
-        mathContent.innerHTML = opt.text;
-
-        btn.appendChild(label);
-        btn.appendChild(mathContent);
+        btn.innerHTML = `<span class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0">${opt.id}</span><span class="overflow-x-auto math-scroll max-w-full flex-1 py-1">${opt.text}</span>`;
         optionsGrid.appendChild(btn);
     });
-
     renderMath();
 }
 
 function handleAnswer(selectedOption, buttonElement) {
     attemptsCount++;
-    const isCorrect = selectedOption.isCorrect === true;
-
-    if (isCorrect) {
-        buttonElement.classList.remove('border-slate-200', 'hover:border-indigo-400');
+    if (selectedOption.isCorrect) {
         buttonElement.classList.add('border-green-500', 'bg-green-50');
         buttonElement.querySelector('span').classList.replace('bg-slate-100', 'bg-green-500');
         buttonElement.querySelector('span').classList.replace('text-slate-500', 'text-white');
-        
-        document.getElementById('progressText').textContent = `完成 ${currentQuestionIndex + 1}/${questionBank.length}`;
-        
-        if (attemptsCount === 1) {
-            score += 10;
-            updateScoreDisplay();
-        }
-
+        if (attemptsCount === 1) { score += 10; updateScoreDisplay(); }
         showFeedback('correct', selectedOption.hint, true);
         disableAllButtons();
-        
     } else {
-        buttonElement.classList.remove('border-slate-200');
         buttonElement.classList.add('border-red-300', 'bg-red-50');
         buttonElement.disabled = true;
-
         showFeedback('incorrect', selectedOption.hint, false);
     }
 }
 
 function showFeedback(type, message, showNextBtn) {
-    const feedbackArea = document.getElementById('feedbackArea');
-    const feedbackBox = document.getElementById('feedbackBox');
-    const messageEl = document.getElementById('feedbackMessage');
+    const fbArea = document.getElementById('feedbackArea');
+    const fbBox = document.getElementById('feedbackBox');
+    fbArea.classList.remove('hidden');
+    fbBox.className = type === 'correct' ? 'p-4 rounded-xl border bg-green-50 border-green-200 w-full overflow-hidden' : 'p-4 rounded-xl border bg-orange-50 border-orange-200 w-full overflow-hidden';
+    document.getElementById('feedbackMessage').innerHTML = message;
+    
     const nextBtn = document.getElementById('nextBtn');
-
-    feedbackArea.classList.remove('hidden');
-    feedbackBox.className = type === 'correct' ? 'p-4 rounded-xl border bg-green-50 border-green-200 w-full overflow-hidden' : 'p-4 rounded-xl border bg-orange-50 border-orange-200 w-full overflow-hidden';
-    messageEl.innerHTML = message;
-
-    if (showNextBtn) {
-        nextBtn.classList.remove('hidden');
-        nextBtn.onclick = goToNext;
-    } else {
-        nextBtn.classList.add('hidden');
-    }
+    if (showNextBtn) { nextBtn.classList.remove('hidden'); nextBtn.onclick = goToNext; } 
+    else { nextBtn.classList.add('hidden'); }
     renderMath();
 }
 
-function hideFeedback() {
-    document.getElementById('feedbackArea').classList.add('hidden');
-}
+function hideFeedback() { document.getElementById('feedbackArea').classList.add('hidden'); }
+function disableAllButtons() { document.querySelectorAll('.option-btn').forEach(btn => { if (!btn.classList.contains('border-green-500')) btn.disabled = true; }); }
+function goToNext() { currentQuestionIndex++; if (currentQuestionIndex < questionBank.length) loadQuestion(); else showEndScreen(); }
 
-function disableAllButtons() {
-    document.querySelectorAll('.option-btn').forEach(btn => {
-        if (!btn.classList.contains('border-green-500')) btn.disabled = true;
-    });
-}
-
-function goToNext() {
-    currentQuestionIndex++;
-    if (currentQuestionIndex < questionBank.length) loadQuestion();
-    else showEndScreen();
-}
-
-// --- 結算畫面與權重隨機抽取座右銘 ---
+// --- 結算畫面與刮刮卡機制 ---
 function showEndScreen() {
     document.getElementById('appContainer').classList.add('hidden');
     document.getElementById('endScreen').classList.remove('hidden');
@@ -300,116 +221,57 @@ function showEndScreen() {
     
     let totalWeight = pool.reduce((sum, q) => sum + (parseFloat(q.weight) || 1), 0);
     let randomNum = Math.random() * totalWeight;
-    
     for (let q of pool) {
         let w = parseFloat(q.weight) || 1;
-        if (randomNum < w) {
-            selectedQuote = q;
-            break;
-        }
+        if (randomNum < w) { selectedQuote = q; break; }
         randomNum -= w;
     }
     
     document.getElementById('motivationalQuote').textContent = selectedQuote.text;
     
-    // 處理獎勵顯示 (刮刮卡形式)
+    // 刮刮卡渲染
     let rewardContainer = document.getElementById('rewardContainer');
     if (!rewardContainer) {
         rewardContainer = document.createElement('div');
         rewardContainer.id = 'rewardContainer';
         rewardContainer.className = 'mt-6 w-full max-w-sm mx-auto hidden';
-        const quoteContainer = document.getElementById('motivationalQuote').parentElement.parentElement;
-        // 將刮刮卡加在引用句子的正下方
-        quoteContainer.parentElement.insertBefore(rewardContainer, quoteContainer.nextSibling);
+        document.getElementById('motivationalQuote').parentElement.parentElement.parentElement.appendChild(rewardContainer);
     }
     
     if (selectedQuote.reward && selectedQuote.reward.trim() !== "") {
         rewardContainer.classList.remove('hidden');
         rewardContainer.innerHTML = `
-            <div class="relative w-full h-20 sm:h-24 rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm select-none" style="touch-action: none;">
-                <div class="absolute inset-0 flex items-center justify-center bg-pink-50 text-pink-600 font-bold px-4 text-center z-0 text-sm sm:text-base">
-                    🎁 ${selectedQuote.reward}
-                </div>
+            <div class="relative w-full h-20 sm:h-24 rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm" style="touch-action:none;">
+                <div class="absolute inset-0 flex items-center justify-center bg-pink-50 text-pink-600 font-bold px-4 text-center text-sm sm:text-base">🎁 ${selectedQuote.reward}</div>
                 <canvas id="scratchCanvas" class="absolute inset-0 w-full h-full z-10 cursor-pointer"></canvas>
             </div>
-            <div class="text-xs text-slate-400 mt-2 text-center">💡 用手指或滑鼠刮開塗層看獎勵</div>
+            <div class="text-xs text-slate-400 mt-2 text-center">💡 刮開塗層看獎勵</div>
         `;
-
-        // 設定微小延遲以確保 Canvas 已經渲染在畫面上，才能正確取得寬高
+        
         setTimeout(() => {
             const canvas = document.getElementById('scratchCanvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
-            
-            canvas.width = canvas.offsetWidth;
-            canvas.height = canvas.offsetHeight;
-
-            // 畫上灰色塗層
-            ctx.fillStyle = '#cbd5e1'; 
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 寫上提示文字
-            ctx.font = 'bold 16px sans-serif';
-            ctx.fillStyle = '#64748b'; 
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('✨ 刮刮看有什麼獎勵 ✨', canvas.width / 2, canvas.height / 2);
-
-            // 設定橡皮擦屬性
-            ctx.lineJoin = 'round';
-            ctx.lineCap = 'round';
-            ctx.lineWidth = 25; // 控制刮開的粗細
-            ctx.globalCompositeOperation = 'destination-out';
-
+            canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+            ctx.fillStyle = '#cbd5e1'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.font = 'bold 16px sans-serif'; ctx.fillStyle = '#64748b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✨ 刮開看獎勵 ✨', canvas.width / 2, canvas.height / 2);
+            ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.lineWidth = 25; ctx.globalCompositeOperation = 'destination-out';
             let isDrawing = false;
-
-            function getPos(e) {
-                const rect = canvas.getBoundingClientRect();
-                const evt = e.touches ? e.touches[0] : e;
-                return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
-            }
-
-            function startDraw(e) {
-                isDrawing = true;
-                const pos = getPos(e);
-                ctx.beginPath();
-                ctx.moveTo(pos.x, pos.y);
-            }
-
-            function drawing(e) {
-                if (!isDrawing) return;
-                e.preventDefault(); // 防止手機端刮卡時畫面跟著捲動
-                const pos = getPos(e);
-                ctx.lineTo(pos.x, pos.y);
-                ctx.stroke();
-            }
-
-            function endDraw() { isDrawing = false; }
-
-            // 滑鼠事件
-            canvas.addEventListener('mousedown', startDraw);
-            canvas.addEventListener('mousemove', drawing);
-            canvas.addEventListener('mouseup', endDraw);
-            canvas.addEventListener('mouseleave', endDraw);
-
-            // 手機觸控事件
-            canvas.addEventListener('touchstart', startDraw, { passive: false });
-            canvas.addEventListener('touchmove', drawing, { passive: false });
-            canvas.addEventListener('touchend', endDraw);
-            canvas.addEventListener('touchcancel', endDraw);
-        }, 50);
-
+            function getPos(e) { const rect = canvas.getBoundingClientRect(); const evt = e.touches ? e.touches[0] : e; return { x: evt.clientX - rect.left, y: evt.clientY - rect.top }; }
+            canvas.onmousedown = (e) => { isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+            canvas.onmousemove = (e) => { if (!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
+            window.onmouseup = () => isDrawing = false;
+            canvas.ontouchstart = (e) => { e.preventDefault(); isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+            canvas.ontouchmove = (e) => { e.preventDefault(); if (!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
+            canvas.ontouchend = () => isDrawing = false;
+        }, 100);
     } else {
         rewardContainer.classList.add('hidden');
-        rewardContainer.innerHTML = '';
     }
 }
 
-function updateScoreDisplay() {
-    document.getElementById('scoreDisplay').textContent = score;
-}
+function updateScoreDisplay() { document.getElementById('scoreDisplay').textContent = score; }
 
-// --- 提交成績至 Google Sheet ---
 function submitToGoogleSheet() {
     const btn = document.getElementById('submitRecordBtn');
     const statusText = document.getElementById('submitStatus');
@@ -418,62 +280,46 @@ function submitToGoogleSheet() {
     const studentName = document.getElementById('studentName').value.trim();
 
     if (!className || !classNumber || !studentName) {
-        statusText.textContent = "⚠️ 請填寫所有資料";
-        statusText.className = "text-center text-sm font-bold mt-3 text-red-500 block";
-        return;
+        statusText.textContent = "⚠️ 請填寫所有資料"; statusText.className = "text-center text-sm font-bold mt-3 text-red-500 block"; return;
     }
 
-    btn.disabled = true;
-    btn.textContent = "傳送中...";
-    btn.classList.add('opacity-50', 'cursor-not-allowed');
-    statusText.classList.add('hidden');
+    btn.disabled = true; btn.textContent = "傳送中..."; btn.classList.add('opacity-50');
     
     let displayLevel = currentLevelPref === 'mixed' ? '綜合挑戰' : currentLevelPref.toString().toUpperCase();
     let totalScoreVal = totalQuestionsConfig * 10;
     let percentageVal = ((score / totalScoreVal) * 100).toFixed(0) + "%";
 
-    document.getElementById('form_className').value = className;
-    document.getElementById('form_classNumber').value = classNumber;
-    document.getElementById('form_studentName').value = studentName;
-    document.getElementById('form_topic').value = currentTopicName; 
-    document.getElementById('form_level').value = `程度 ${displayLevel}`;
-    document.getElementById('form_score').value = score;
-    document.getElementById('form_totalScore').value = totalScoreVal;
-    document.getElementById('form_percentage').value = percentageVal;
+    const formData = new URLSearchParams();
+    formData.append('className', className);
+    formData.append('classNumber', classNumber);
+    formData.append('studentName', studentName);
+    formData.append('topic', currentTopicName); 
+    formData.append('level', `程度 ${displayLevel}`);
+    formData.append('score', score);
+    formData.append('totalScore', totalScoreVal);
+    formData.append('percentage', percentageVal);
 
-    document.getElementById('googleForm').action = GOOGLE_SCRIPT_URL; 
-    document.getElementById('googleForm').submit();
-
-    setTimeout(() => {
-        btn.textContent = "✅ 已成功傳送！";
-        btn.classList.remove('bg-green-600', 'hover:bg-green-700');
-        btn.classList.add('bg-slate-400');
-        statusText.textContent = "成績已成功傳送給老師，謝謝！";
-        statusText.className = "text-center text-sm font-bold mt-3 text-green-600 block";
-    }, 1500);
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData, mode: 'no-cors' })
+        .then(() => {
+            btn.textContent = "✅ 已成功傳送！"; btn.classList.replace('bg-green-600', 'bg-slate-400');
+            statusText.textContent = "成績已傳送給老師！"; statusText.className = "text-center text-sm font-bold mt-3 text-green-600 block";
+        })
+        .catch(err => {
+            btn.disabled = false; btn.textContent = "傳送成績"; btn.classList.remove('opacity-50');
+            statusText.textContent = "❌ 傳送失敗，請檢查網路。"; statusText.className = "text-center text-sm font-bold mt-3 text-red-500 block";
+        });
 }
 
-// --- 渲染數學公式 ---
 function renderMath() {
     if (typeof renderMathInElement !== 'undefined') {
-        const config = {
-            delimiters: [
-                {left: '$$', right: '$$', display: true},
-                {left: '\\[', right: '\\]', display: true},
-                {left: '\\(', right: '\\)', display: false}
-            ],
-            throwOnError: false
-        };
-        const qText = document.getElementById('questionText');
-        const optGrid = document.getElementById('optionsGrid');
-        const fbArea = document.getElementById('feedbackArea');
-        if (qText) renderMathInElement(qText, config);
-        if (optGrid) renderMathInElement(optGrid, config);
-        if (fbArea) renderMathInElement(fbArea, config);
+        renderMathInElement(document.getElementById('main-wrapper'), { 
+            delimiters: [ {left: '$$', right: '$$', display: true}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false} ], 
+            throwOnError: false 
+        });
     }
 }
 
-// --- 綁定全域函數修復 onclick 錯誤 ---
+// --- 全域函數綁定 (修復 onclick 報錯) ---
 window.setQuestionNum = setQuestionNum;
 window.showTopicScreen = showTopicScreen;
 window.backToLevelSelection = backToLevelSelection;
@@ -484,7 +330,5 @@ window.selectTopic = selectTopic;
 window.startGame = startGame;
 window.submitToGoogleSheet = submitToGoogleSheet;
 
-window.onload = () => {
-    showTopicScreen();
-    fetchQuotes(); 
-};
+// --- 初始化載入 ---
+window.onload = () => { showTopicScreen(); fetchConfig(); };
