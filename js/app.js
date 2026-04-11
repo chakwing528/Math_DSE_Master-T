@@ -160,15 +160,21 @@ function startGlobalMixed(level) {
             let qArr = [];
             let lvl = String(level);
             
+            // 🌟 修正：通用降階保護機制 (防呆設計)
+            // 自動判斷該課題支援的最高難度。若要求的難度大於支援範圍，自動向下降階
+            let supportedIds = fallbackConfigs[t].levels.map(l => l.id);
+            let maxSupported = 1;
+            if (supportedIds.some(id => id.includes('3'))) maxSupported = 3;
+            else if (supportedIds.some(id => id.includes('2'))) maxSupported = 2;
+
+            if (parseInt(lvl) > maxSupported) {
+                lvl = String(maxSupported);
+            }
+            
             // 特別處理因式分解的 A/B 分支設定 (隨機抽籤)
             if (t === 'factorization') {
                 if (lvl === '2') lvl = Math.random() > 0.5 ? '2a' : '2b';
                 if (lvl === '3') lvl = Math.random() > 0.5 ? '3a' : '3b';
-            }
-            
-            // 🌟 修正：特別處理通分母 (只有程度 1 和 2，沒有程度 3)
-            if (t === 'fractions' && lvl === '3') {
-                lvl = '2'; // 強制降階至最高支援難度
             }
             
             // 每次生成一題對應難度的題目
