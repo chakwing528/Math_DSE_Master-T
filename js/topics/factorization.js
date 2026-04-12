@@ -1,431 +1,303 @@
-// js/app.js
+// js/topics/factorization.js
 
 // ==========================================
-// 🚨 老師設定區：請填寫你部署後的 Google Web App URL
+// 專屬錯誤提示訊息
 // ==========================================
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw_h7rVev1VtAuPK4BFGR4i3lLMC2dGH_X6lkeB5IHZNHWPSBcQtFGNg0U9ZEteZMs/exec"; 
+const msgFact1 = `<div class="text-red-600 font-bold text-lg mb-1">❗ 未完全提出公因式</div>`;
+const msgFact2 = `<div class="text-red-600 font-bold text-lg mb-1">❗ 恆等式運用錯誤</div>`;
+const msgFact3 = `<div class="text-red-600 font-bold text-lg mb-1">❗ 十字相乘組合錯誤</div>`;
+const msgFact4 = `<div class="text-red-600 font-bold text-lg mb-1">❗ 正負號錯誤</div>`;
 
-// --- 預設備用設定 (若網路不穩或未讀取到 Google Sheet 時使用) ---
-const motivationalQuotes = [
-    "未來的你，必定感激今天努力的自己。", "默默耕耘，總有收穫。", "答應自己，每天堅持多 1 分鐘。", "今天的累積，是明天的底氣。"
-];
-
-// 根據 Canvas 提供的「課題設定表.csv」建立預設邏輯
-const fallbackConfigs = {
-    'indices': { name: '指數定律', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S1', desc: '只有 1 個運算步驟<br>鞏固單一法則。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S3', desc: '只有 2 個運算步驟<br>學習法則轉換。' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S3、DSE', desc: '包含 2 個變數<br>嚴格只有 2 步。' } ] },
-    'factorization': { name: '因式分解', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S2', desc: '提公因式<br>學習抽出共同因子。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S2', desc: '公式分解<br>包含一元與二元的完全平方與平方差。' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S3、DSE', desc: '因式分解<br>包含一元與二元的十字相乘法。' } ] },
-    'rounding': { name: '近似值與捨入', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S1、DSE', desc: '基本捨入<br>小數點與有效數字的基本四捨五入。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S1、DSE', desc: '上捨入與下捨入<br>進階要求：強制進位或捨去。' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S1、DSE', desc: '綜合應用<br>包含前導零小數及大整數陷阱。' } ] },
-    'identities': { name: '恆等式', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S2', desc: '展開與比較係數<br>基礎一元一次恆等式。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S2、DSE', desc: '二次恆等式<br>進階代入與比較係數。' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S2、DSE', desc: '比例問題<br>求取多個未知數的比例。' } ] },
-    'fractions': { name: '通分母', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S2、DSE', desc: '分母為一元一次<br>分子為常數。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S4', desc: '分母為一元二次<br>需先因式分解再通分母。' } ] },
-    'binary': { name: '二進制', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S3、DSE', desc: '二進制轉十進制<br>只有加法。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S3、DSE', desc: '十進制轉二進制<br>只有加法。' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S3、DSE', desc: '綜合轉換<br>包含加法與減法。' } ] },
-    'expansion': { name: '恆等式的展開', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S2', desc: '展開 (x+a)² 或 (x+a)(x-a)<br>基礎展開。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S3、DSE', desc: '展開 (bx+a)² 或 (bx+a)(bx-a)<br>b 為正整數。' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S3、DSE', desc: '展開 (bx+a)² 或 (bx+a)(bx-a)<br>a 與 b 皆可為負數。' } ] }
-};
-
-// --- 全局狀態 ---
-let questionBank = [];
-let currentQuestionIndex = 0;
-let score = 0;
-let attemptsCount = 0; 
-let currentLevelPref = 1; 
-let currentTopic = 'indices'; 
-let currentTopicName = '指數定律';
-let totalQuestionsConfig = 3; 
-let dynamicQuotes = [];
-let dynamicTopicConfig = [];
-
-// --- 動態從 Google Sheet 抓取設定 (doGet) ---
-async function fetchConfig() {
-    try {
-        if (GOOGLE_SCRIPT_URL && !GOOGLE_SCRIPT_URL.includes("請在此貼上")) {
-            const response = await fetch(GOOGLE_SCRIPT_URL);
-            const data = await response.json();
-            if (data && typeof data === 'object') {
-                if (data.quotes) dynamicQuotes = data.quotes;
-                if (data.topicConfig) dynamicTopicConfig = data.topicConfig;
-                console.log("✅ 成功從統一 Google Sheet 載入座右銘與課題設定！");
-            }
-        }
-    } catch (e) {
-        console.warn("⚠️ 讀取設定失敗，將使用系統備用設定。");
-    }
-}
-
-// --- UI 控制與導航 ---
-function setQuestionNum(num) {
-    totalQuestionsConfig = num;
-    document.querySelectorAll('.num-btn').forEach(btn => {
-        btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-md');
-        btn.classList.add('bg-transparent', 'text-slate-600');
-    });
-    const activeBtn = document.getElementById('btn-num-' + num);
-    if (activeBtn) {
-        activeBtn.classList.remove('bg-transparent', 'text-slate-600');
-        activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-md');
-    }
-    const displayQ = document.getElementById('displayQNum');
-    if (displayQ) displayQ.textContent = num;
-}
-
-function showTopicScreen() {
-    document.getElementById('topicScreen').classList.remove('hidden');
-    document.getElementById('startScreen').classList.add('hidden');
-    document.getElementById('appContainer').classList.add('hidden');
-    document.getElementById('endScreen').classList.add('hidden');
-}
-
-function backToLevelSelection() {
-    document.getElementById('appContainer').classList.add('hidden');
-    document.getElementById('endScreen').classList.add('hidden');
+// ==========================================
+// 題目生成器：因式分解 (Factorization)
+// ==========================================
+function generateFactorizationQuestions(num, levelPref) {
+    const bank = [];
+    const singleVars = ['x', 'y', 'a', 'b', 'm', 'n']; 
+    const varPairs = [['x', 'y'], ['a', 'b'], ['m', 'n'], ['p', 'q']];
     
-    if (currentTopic === 'global_mixed') {
-        showTopicScreen();
-    } else {
-        selectTopic(currentTopic);
-    }
-}
-
-function backToLevelSelectionFromQuiz() { document.getElementById('confirmModal').classList.remove('hidden'); }
-function closeConfirmModal() { document.getElementById('confirmModal').classList.add('hidden'); }
-function confirmBackToLevelSelection() { closeConfirmModal(); backToLevelSelection(); }
-
-// --- 選擇課題並動態生成難度按鈕 ---
-function selectTopic(topic) {
-    currentTopic = topic;
-    document.getElementById('topicScreen').classList.add('hidden');
-    document.getElementById('startScreen').classList.remove('hidden');
-    
-    // 先隱藏所有難度按鈕 ID
-    const allBtnIds = ['btnL1', 'btnL2', 'btnL3', 'btnL2A', 'btnL2B', 'btnL3A', 'btnL3B'];
-    allBtnIds.forEach(id => {
-        const b = document.getElementById(id);
-        if (b) b.classList.add('hidden');
-    });
-
-    let config = fallbackConfigs[topic];
-    if (!config) return;
-
-    currentTopicName = config.name;
-    document.getElementById('levelTitle').textContent = config.name + ' - 請選擇難度';
-
-    config.levels.forEach(lvl => {
-        let title = lvl.title, badge = lvl.badge, desc = lvl.desc;
+    for (let i = 0; i < num; i++) {
+        let levelType = levelPref;
+        if (levelPref === 'mixed') {
+            const types = ['1', '2', '3']; // 只取大範圍難度
+            levelType = types[getRandomInt(0, types.length)];
+        } else {
+            levelType = String(levelPref).toLowerCase();
+        }
         
-        // 優先套用 Google Sheet 的自定義內容
-        if (dynamicTopicConfig && dynamicTopicConfig.length > 0) {
-            let custom = dynamicTopicConfig.find(c => c.topic === topic && c.levelId === lvl.id);
-            if (custom) {
-                if (custom.title) title = custom.title;
-                if (custom.badge) badge = custom.badge;
-                if (custom.desc) desc = custom.desc;
-            }
+        let subType = Math.random() > 0.5 ? 'a' : 'b'; // 在內部自動決定是 A 型或 B 型
+
+        // 為了相容可能從舊 URL 或暫存傳來的舊設定
+        if (levelType === '2a' || levelType === '2b') {
+            subType = levelType.charAt(1);
+            levelType = '2';
+        } else if (levelType === '3a' || levelType === '3b') {
+            subType = levelType.charAt(1);
+            levelType = '3';
         }
-
-        const btn = document.getElementById('btn' + lvl.id);
-        if (btn) {
-            btn.classList.remove('hidden');
-            let colorClass = lvl.id.includes('1') ? 'bg-green-100 text-green-700' : (lvl.id.includes('2') ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700');
-            btn.querySelector('.font-bold').innerHTML = title + `<div class="mt-1"><span class="inline-block px-2 py-0.5 ${colorClass} text-xs rounded-md font-bold">${badge}</span></div>`;
-            btn.lastElementChild.innerHTML = desc;
-        }
-    });
-}
-
-// --- 跨課題綜合挑戰生成引擎 ---
-function startGlobalMixed(level) {
-    try {
-        currentTopic = 'global_mixed';
-        currentTopicName = '跨課題綜合挑戰';
-        currentLevelPref = level;
-        document.getElementById('questionInstruction').classList.add('hidden');
-
-        // 定義所有課題庫清單
-        let topicsList = ['indices', 'factorization', 'rounding', 'identities', 'fractions', 'binary', 'expansion'];
         
-        // 保證每一個課題都能最少出現一次，自動將題數提升至課題數之上 (最少7題)
-        let numQ = Math.max(totalQuestionsConfig, topicsList.length);
+        let qObj = { id: i + 1, topic: "因式分解 (Factorization)" };
+        let questionMathStr = "";
 
-        // 1. 保證每個課題至少出題一次
-        let selectedTopics = [...topicsList];
+        if (levelType === '1') {
+            qObj.level = "⭐ 程度 1";
+            const v = singleVars[getRandomInt(0, singleVars.length)];
+            let c = getRandomInt(2, 6);
+            let k = getRandomInt(2, 7);
+            if(c === k) k += 1; 
+            let sign = Math.random() > 0.5 ? 1 : -1;
+            let signStr = sign > 0 ? '+' : '-';
+            let ckAbs = c * k; 
 
-        // 2. 如果設定題數大於課題數 (如選 10 題)，剩餘的題數則隨機填充
-        while (selectedTopics.length < numQ) {
-            selectedTopics.push(topicsList[Math.floor(Math.random() * topicsList.length)]);
-        }
-
-        // 3. 隨機打亂所有選中的課題順序
-        selectedTopics = shuffleArray(selectedTopics);
-
-        questionBank = [];
-        selectedTopics.forEach((t, idx) => {
-            let qArr = [];
-            let lvl = String(level);
+            questionMathStr = `${c}${v}^2 ${signStr} ${ckAbs}${v}`;
             
-            // 🌟 修正：通用降階保護機制 (防呆設計)
-            // 自動判斷該課題支援的最高難度。若要求的難度大於支援範圍，自動向下降階
-            let supportedIds = fallbackConfigs[t].levels.map(l => l.id);
-            let maxSupported = 1;
-            if (supportedIds.some(id => id.includes('3'))) maxSupported = 3;
-            else if (supportedIds.some(id => id.includes('2'))) maxSupported = 2;
+            let correctStr = `${c}${v}(${v} ${signStr} ${k})`;
+            let wrong1 = `${v}(${c}${v} ${signStr} ${ckAbs})`; // 漏數字
+            let wrong2 = `${c}(${v}^2 ${signStr} ${k}${v})`; // 漏變數
+            let wrong3 = `${c}${v}(${v} ${sign > 0 ? '-' : '+'} ${k})`; // 符號錯
 
-            if (parseInt(lvl) > maxSupported) {
-                lvl = String(maxSupported);
-            }
+            let eqCorrect = buildEq([
+                { text: `${c}${v}^2 ${signStr} ${ckAbs}${v}`, hide: false },
+                { text: `${c}${v}(${v}) ${signStr} ${c}${v}(${k})`, hide: true },
+                { text: correctStr, hide: false }
+            ]);
+
+            let options = [
+                { text: `\\( \\displaystyle ${correctStr} \\)`, isCorrect: true, hint: wrapHint(msgCorrect, eqCorrect) },
+                { text: `\\( \\displaystyle ${wrong1} \\)`, isCorrect: false, hint: wrapHint(msgFact1 + "<div class='text-sm text-slate-500 mb-2'>(提示：數字部份也可以抽出公因式喔！)</div>", buildEq([{text: `${c}${v}^2 ${signStr} ${ckAbs}${v}`, hide: false}, {text: `${c}${v}(${v}) ${signStr} ${c}${v}(${k})`, hide: true}, {text: correctStr, hide: false}])) },
+                { text: `\\( \\displaystyle ${wrong2} \\)`, isCorrect: false, hint: wrapHint(msgFact1 + "<div class='text-sm text-slate-500 mb-2'>(提示：變數也可以抽出公因式喔！)</div>", buildEq([{text: `${c}${v}^2 ${signStr} ${ckAbs}${v}`, hide: false}, {text: `${c}${v}(${v}) ${signStr} ${c}${v}(${k})`, hide: true}, {text: correctStr, hide: false}])) },
+                { text: `\\( \\displaystyle ${wrong3} \\)`, isCorrect: false, hint: wrapHint(msgFact4, buildEq([{text: `${c}${v}^2 ${signStr} ${ckAbs}${v}`, hide: false}, {text: `${c}${v}(${v}) ${signStr} ${c}${v}(${k})`, hide: true}, {text: correctStr, hide: false}])) }
+            ];
+            qObj.options = shuffleArray(options).map((opt, idx) => ({...opt, id: String.fromCharCode(65 + idx)}));
+
+        } else if (levelType === '2' && subType === 'a') {
+            qObj.level = "⭐⭐ 程度 2";
+            let type = getRandomInt(0, 2); 
+            const v = singleVars[getRandomInt(0, singleVars.length)];
+            let options = [];
             
-            // 每次生成一題對應難度的題目
-            if (t === 'indices') qArr = generateIndicesQuestions(1, lvl);
-            else if (t === 'factorization') qArr = generateFactorizationQuestions(1, lvl);
-            else if (t === 'rounding') qArr = generateRoundingQuestions(1, lvl);
-            else if (t === 'identities') qArr = generateIdentitiesQuestions(1, lvl);
-            else if (t === 'fractions') qArr = generateFractionsQuestions(1, lvl);
-            else if (t === 'binary') qArr = generateBinaryQuestions(1, lvl);
-            else if (t === 'expansion') qArr = generateExpansionQuestions(1, lvl);
+            if (type === 0) {
+                let k = getRandomInt(2, 10);
+                let k2 = k * k;
+                questionMathStr = `${v}^2 - ${k2}`;
+                let correctStr = `(${v} - ${k})(${v} + ${k})`;
+                
+                let eqCorrect = buildEq([
+                    { text: `${v}^2 - ${k2}`, hide: false },
+                    { text: `${v}^2 - ${k}^2`, hide: true },
+                    { text: correctStr, hide: false }
+                ]);
 
-            if (qArr && qArr.length > 0) {
-                qArr[0].id = idx + 1; // 連續修正題號
-                questionBank.push(qArr[0]);
+                let wrong1 = `(${v} - ${k})^2`;
+                let wrong2 = `(${v} + ${k})^2`;
+                let wrong3 = `(${v} - ${k2})^2`;
+
+                options.push({ text: `\\( \\displaystyle ${correctStr} \\)`, isCorrect: true, hint: wrapHint(msgCorrect, eqCorrect) });
+                [wrong1, wrong2, wrong3].forEach((w, idx) => {
+                    options.push({ text: `\\( \\displaystyle ${w} \\)`, isCorrect: false, hint: wrapHint(msgFact2 + "<div class='text-sm text-slate-500 mb-2'>(提示：留意平方差公式 \\( a^2 - b^2 = (a-b)(a+b) \\) )</div>", buildEq([{text: `${v}^2 - ${k2}`, hide: false}, {text: `${v}^2 - ${k}^2`, hide: true}, {text: correctStr, hide: false}])) });
+                });
+            } else {
+                let k = getRandomInt(2, 9);
+                let sign = Math.random() > 0.5 ? 1 : -1;
+                let signStr = sign > 0 ? '+' : '-';
+                let k2 = k * k;
+                let midCoef = 2 * k;
+                
+                questionMathStr = `${v}^2 ${signStr} ${midCoef}${v} + ${k2}`;
+                let correctStr = `(${v} ${signStr} ${k})^2`;
+                
+                let eqCorrect = buildEq([
+                    { text: `${v}^2 ${signStr} ${midCoef}${v} + ${k2}`, hide: false },
+                    { text: `${v}^2 ${signStr} 2(${v})(${k}) + ${k}^2`, hide: true },
+                    { text: correctStr, hide: false }
+                ]);
+
+                let wrong1 = `(${v} ${sign > 0 ? '-' : '+'} ${k})^2`;
+                let wrong2 = `(${v} - ${k})(${v} + ${k})`;
+                let wrong3 = `(${v} ${signStr} ${k2})^2`;
+
+                options.push({ text: `\\( \\displaystyle ${correctStr} \\)`, isCorrect: true, hint: wrapHint(msgCorrect, eqCorrect) });
+                [wrong1, wrong2, wrong3].forEach((w, idx) => {
+                    options.push({ text: `\\( \\displaystyle ${w} \\)`, isCorrect: false, hint: wrapHint(msgFact2 + "<div class='text-sm text-slate-500 mb-2'>(提示：留意完全平方公式 \\( a^2 \\pm 2ab + b^2 = (a \\pm b)^2 \\) )</div>", buildEq([{text: `${v}^2 ${signStr} ${midCoef}${v} + ${k2}`, hide: false}, {text: `${v}^2 ${signStr} 2(${v})(${k}) + ${k}^2`, hide: true}, {text: correctStr, hide: false}])) });
+                });
             }
-        });
+            qObj.options = shuffleArray(options).map((opt, idx) => ({...opt, id: String.fromCharCode(65 + idx)}));
 
-        // 設定好題目後切換畫面
-        currentQuestionIndex = 0; score = 0; updateScoreDisplay();
-        document.getElementById('topicScreen').classList.add('hidden');
-        document.getElementById('startScreen').classList.add('hidden');
-        document.getElementById('endScreen').classList.add('hidden');
-        document.getElementById('appContainer').classList.remove('hidden');
+        } else if (levelType === '2' && subType === 'b') {
+            qObj.level = "⭐⭐ 程度 2";
+            let type = getRandomInt(0, 2); 
+            const pair = varPairs[getRandomInt(0, varPairs.length)];
+            const v1 = pair[0], v2 = pair[1];
+            let options = [];
+            
+            if (type === 0) {
+                let k = getRandomInt(2, 10);
+                let k2 = k * k;
+                questionMathStr = `${v1}^2 - ${k2}${v2}^2`;
+                let correctStr = `(${v1} - ${k}${v2})(${v1} + ${k}${v2})`;
+                
+                let eqCorrect = buildEq([
+                    { text: `${v1}^2 - ${k2}${v2}^2`, hide: false },
+                    { text: `${v1}^2 - (${k}${v2})^2`, hide: true },
+                    { text: correctStr, hide: false }
+                ]);
 
-        const btn = document.getElementById('submitRecordBtn');
-        if (btn) {
-            btn.disabled = false; btn.textContent = "傳送成績";
-            btn.classList.remove('bg-slate-400'); btn.classList.add('bg-green-600');
-        }
-        const statusText = document.getElementById('submitStatus');
-        if (statusText) statusText.classList.add('hidden');
+                let wrong1 = `(${v1} - ${k}${v2})^2`;
+                let wrong2 = `(${v1} + ${k}${v2})^2`;
+                let wrong3 = `(${v1} - ${k}${v2})(${v1} - ${k}${v2})`;
 
-        loadQuestion();
-    } catch (error) {
-        alert("🚨 系統錯誤！無法讀取跨課題題庫。\n原因：" + error.message);
-        console.error(error);
-    }
-}
+                options.push({ text: `\\( \\displaystyle ${correctStr} \\)`, isCorrect: true, hint: wrapHint(msgCorrect, eqCorrect) });
+                [wrong1, wrong2, wrong3].forEach((w, idx) => {
+                    options.push({ text: `\\( \\displaystyle ${w} \\)`, isCorrect: false, hint: wrapHint(msgFact2 + "<div class='text-sm text-slate-500 mb-2'>(提示：留意平方差公式 \\( a^2 - b^2 = (a-b)(a+b) \\) )</div>", buildEq([{text: `${v1}^2 - ${k2}${v2}^2`, hide: false}, {text: `${v1}^2 - (${k}${v2})^2`, hide: true}, {text: correctStr, hide: false}])) });
+                });
+            } else {
+                let k = getRandomInt(2, 9);
+                let sign = Math.random() > 0.5 ? 1 : -1;
+                let signStr = sign > 0 ? '+' : '-';
+                let k2 = k * k;
+                let midCoef = 2 * k;
+                
+                questionMathStr = `${v1}^2 ${signStr} ${midCoef}${v1}${v2} + ${k2}${v2}^2`;
+                let correctStr = `(${v1} ${signStr} ${k}${v2})^2`;
+                
+                let eqCorrect = buildEq([
+                    { text: `${v1}^2 ${signStr} ${midCoef}${v1}${v2} + ${k2}${v2}^2`, hide: false },
+                    { text: `${v1}^2 ${signStr} 2(${v1})(${k}${v2}) + (${k}${v2})^2`, hide: true },
+                    { text: correctStr, hide: false }
+                ]);
 
-// --- 單一課題開始遊戲與題目載入 ---
-function startGame(levelPref) {
-    try {
-        if (currentTopic === 'global_mixed') {
-            startGlobalMixed(levelPref);
-            return;
-        }
+                let wrong1 = `(${v1} ${sign > 0 ? '-' : '+'} ${k}${v2})^2`;
+                let wrong2 = `(${v1} - ${k}${v2})(${v1} + ${k}${v2})`;
+                let wrong3 = `(${v1} ${signStr} ${k2}${v2})^2`;
 
-        currentLevelPref = levelPref;
-        document.getElementById('questionInstruction').classList.add('hidden');
-        
-        // 分流至各題庫生成器
-        if (currentTopic === 'indices') questionBank = generateIndicesQuestions(totalQuestionsConfig, currentLevelPref); 
-        else if (currentTopic === 'factorization') questionBank = generateFactorizationQuestions(totalQuestionsConfig, currentLevelPref); 
-        else if (currentTopic === 'rounding') questionBank = generateRoundingQuestions(totalQuestionsConfig, currentLevelPref);
-        else if (currentTopic === 'identities') questionBank = generateIdentitiesQuestions(totalQuestionsConfig, currentLevelPref);
-        else if (currentTopic === 'fractions') questionBank = generateFractionsQuestions(totalQuestionsConfig, currentLevelPref);
-        else if (currentTopic === 'binary') questionBank = generateBinaryQuestions(totalQuestionsConfig, currentLevelPref);
-        else if (currentTopic === 'expansion') questionBank = generateExpansionQuestions(totalQuestionsConfig, currentLevelPref);
-        
-        currentQuestionIndex = 0; score = 0; updateScoreDisplay();
-        document.getElementById('startScreen').classList.add('hidden');
-        document.getElementById('appContainer').classList.remove('hidden');
-        
-        const btn = document.getElementById('submitRecordBtn');
-        btn.disabled = false; btn.textContent = "傳送成績";
-        btn.classList.remove('bg-slate-400'); btn.classList.add('bg-green-600');
-        document.getElementById('submitStatus').classList.add('hidden');
-        
-        loadQuestion();
-    } catch (error) {
-        alert("🚨 系統錯誤！無法讀取題庫。\n原因：" + error.message);
-    }
-}
+                options.push({ text: `\\( \\displaystyle ${correctStr} \\)`, isCorrect: true, hint: wrapHint(msgCorrect, eqCorrect) });
+                [wrong1, wrong2, wrong3].forEach((w, idx) => {
+                    options.push({ text: `\\( \\displaystyle ${w} \\)`, isCorrect: false, hint: wrapHint(msgFact2 + "<div class='text-sm text-slate-500 mb-2'>(提示：留意完全平方公式 \\( a^2 \\pm 2ab + b^2 = (a \\pm b)^2 \\) )</div>", buildEq([{text: `${v1}^2 ${signStr} ${midCoef}${v1}${v2} + ${k2}${v2}^2`, hide: false}, {text: `${v1}^2 ${signStr} 2(${v1})(${k}${v2}) + (${k}${v2})^2`, hide: true}, {text: correctStr, hide: false}])) });
+                });
+            }
+            qObj.options = shuffleArray(options).map((opt, idx) => ({...opt, id: String.fromCharCode(65 + idx)}));
 
-function loadQuestion() {
-    attemptsCount = 0; 
-    const q = questionBank[currentQuestionIndex];
-    document.getElementById('topicBadge').textContent = q.topic;
-    
-    // 若為跨課題綜合挑戰，修改難度徽章的文字顯示
-    if (currentTopic === 'global_mixed') {
-        document.getElementById('levelBadge').innerHTML = `綜合挑戰 (難度: ${currentLevelPref})`;
-    } else {
-        document.getElementById('levelBadge').innerHTML = `難度: ${q.level}`;
-    }
-    
-    document.getElementById('progressText').textContent = `完成 ${currentQuestionIndex}/${questionBank.length}`;
-    hideFeedback();
-    document.getElementById('questionText').innerHTML = q.question;
+        } else if (levelType === '3' && subType === 'a') {
+            qObj.level = "⭐⭐⭐ 程度 3";
+            const v = singleVars[getRandomInt(0, singleVars.length)];
+            let a, b;
+            do {
+                a = getRandomInt(-5, 6);
+                b = getRandomInt(-5, 6);
+            } while (a === 0 || b === 0 || a === -b || a === b);
+            let B = a + b;
+            let C = a * b;
 
-    const optionsGrid = document.getElementById('optionsGrid');
-    optionsGrid.innerHTML = ''; 
-    q.options.forEach(opt => {
-        const btn = document.createElement('button');
-        btn.className = 'option-btn relative p-3 sm:p-4 bg-white border-2 border-slate-200 rounded-xl text-base sm:text-lg text-slate-700 font-medium hover:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100 flex items-center gap-3 text-left w-full overflow-hidden';
-        btn.onclick = () => handleAnswer(opt, btn);
-        btn.innerHTML = `<span class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0">${opt.id}</span><span class="overflow-x-auto math-scroll max-w-full flex-1 py-1">${opt.text}</span>`;
-        optionsGrid.appendChild(btn);
-    });
-    renderMath();
-}
+            let term2 = fmtB(B, v);
+            let term3 = fmtC(C);
 
-function handleAnswer(selectedOption, buttonElement) {
-    attemptsCount++;
-    if (selectedOption.isCorrect) {
-        buttonElement.classList.add('border-green-500', 'bg-green-50');
-        buttonElement.querySelector('span').classList.replace('bg-slate-100', 'bg-green-500');
-        buttonElement.querySelector('span').classList.replace('text-slate-500', 'text-white');
-        if (attemptsCount === 1) { score += 10; updateScoreDisplay(); }
-        showFeedback('correct', selectedOption.hint, true);
-        disableAllButtons();
-    } else {
-        buttonElement.classList.add('border-red-300', 'bg-red-50');
-        buttonElement.disabled = true;
-        showFeedback('incorrect', selectedOption.hint, false);
-    }
-}
+            questionMathStr = `${v}^2 ${term2} ${term3}`;
+            
+            let correctStr = `(${v} ${fmtC(a)})(${v} ${fmtC(b)})`;
+            let wrong1 = `(${v} ${fmtC(-a)})(${v} ${fmtC(-b)})`; 
+            let wrong2 = `(${v} ${fmtC(-a)})(${v} ${fmtC(b)})`;  
+            
+            let fakeA = a + 1;
+            let fakeB = b - 1;
+            if (fakeA === 0) fakeA = 2;
+            if (fakeB === 0) fakeB = -2;
+            let wrong3 = `(${v} ${fmtC(fakeA)})(${v} ${fmtC(fakeB)})`;
 
-function showFeedback(type, message, showNextBtn) {
-    const fbArea = document.getElementById('feedbackArea');
-    const fbBox = document.getElementById('feedbackBox');
-    fbArea.classList.remove('hidden');
-    fbBox.className = type === 'correct' ? 'p-4 rounded-xl border bg-green-50 border-green-200 w-full overflow-hidden' : 'p-4 rounded-xl border bg-orange-50 border-orange-200 w-full overflow-hidden';
-    document.getElementById('feedbackMessage').innerHTML = message;
-    
-    const nextBtn = document.getElementById('nextBtn');
-    if (showNextBtn) { nextBtn.classList.remove('hidden'); nextBtn.onclick = goToNext; } 
-    else { nextBtn.classList.add('hidden'); }
-    renderMath();
-}
+            let crossDiagram = `\\begin{matrix} ${v} & & ${a} \\\\ & \\times & \\\\ ${v} & & ${b} \\end{matrix}`;
+            let crossEval = `(${v})(${b}) + (${v})(${a}) = ${fmtB(B, v).replace('+', '').trim()}`;
 
-function hideFeedback() { document.getElementById('feedbackArea').classList.add('hidden'); }
-function disableAllButtons() { document.querySelectorAll('.option-btn').forEach(btn => { if (!btn.classList.contains('border-green-500')) btn.disabled = true; }); }
-function goToNext() { currentQuestionIndex++; if (currentQuestionIndex < questionBank.length) loadQuestion(); else showEndScreen(); }
-
-// --- 結算畫面與刮刮卡機制 ---
-function showEndScreen() {
-    document.getElementById('appContainer').classList.add('hidden');
-    document.getElementById('endScreen').classList.remove('hidden');
-    document.getElementById('finalScore').textContent = score;
-    document.getElementById('totalQuestions').textContent = questionBank.length * 10;
-    
-    // 建立權重隨機池
-    let selectedQuote = { text: "今天的累積，是明天的底氣。", reward: "" };
-    let pool = dynamicQuotes.length > 0 ? dynamicQuotes : motivationalQuotes.map(q => ({text: q, weight: 1, reward: ""}));
-    
-    let totalWeight = pool.reduce((sum, q) => sum + (parseFloat(q.weight) || 1), 0);
-    let randomNum = Math.random() * totalWeight;
-    for (let q of pool) {
-        let w = parseFloat(q.weight) || 1;
-        if (randomNum < w) { selectedQuote = q; break; }
-        randomNum -= w;
-    }
-    
-    document.getElementById('motivationalQuote').textContent = selectedQuote.text;
-    
-    // 刮刮卡渲染
-    let rewardContainer = document.getElementById('rewardContainer');
-    if (!rewardContainer) {
-        rewardContainer = document.createElement('div');
-        rewardContainer.id = 'rewardContainer';
-        rewardContainer.className = 'mt-6 w-full max-w-sm mx-auto hidden';
-        document.getElementById('motivationalQuote').parentElement.parentElement.parentElement.appendChild(rewardContainer);
-    }
-    
-    if (selectedQuote.reward && selectedQuote.reward.trim() !== "") {
-        rewardContainer.classList.remove('hidden');
-        rewardContainer.innerHTML = `
-            <div class="relative w-full h-20 sm:h-24 rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm" style="touch-action:none;">
-                <div class="absolute inset-0 flex items-center justify-center bg-pink-50 text-pink-600 font-bold px-4 text-center text-sm sm:text-base">🎁 ${selectedQuote.reward}</div>
-                <canvas id="scratchCanvas" class="absolute inset-0 w-full h-full z-10 cursor-pointer"></canvas>
+            let eqCorrectHtml = `
+            <div class="text-left w-full">
+                <div class="my-2">\\( \\displaystyle ${v}^2 ${term2} ${term3} \\)</div>
+                <details class="group my-2">
+                    <summary class="cursor-pointer text-indigo-500 hover:text-indigo-700 font-bold text-sm select-none flex items-center gap-1 outline-none ml-1">
+                        <svg class="w-5 h-5 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        查看十字相乘法步驟
+                    </summary>
+                    <div class="mt-4 pl-4 flex flex-col w-full overflow-x-auto math-scroll items-center bg-indigo-50 border border-indigo-100 p-4 rounded-lg">
+                        <div class="mb-3 text-xl">\\( \\displaystyle ${crossDiagram} \\)</div>
+                        <div class="text-sm text-slate-600 border-t border-indigo-200 pt-3 mt-1 w-full text-center">
+                            檢驗中間項：\\( \\displaystyle ${crossEval} \\)
+                        </div>
+                    </div>
+                </details>
+                <div class="my-2">\\( \\displaystyle = ${correctStr} \\)</div>
             </div>
-            <div class="text-xs text-slate-400 mt-2 text-center">💡 刮開塗層看獎勵</div>
-        `;
-        
-        setTimeout(() => {
-            const canvas = document.getElementById('scratchCanvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
-            ctx.fillStyle = '#cbd5e1'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.font = 'bold 16px sans-serif'; ctx.fillStyle = '#64748b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✨ 刮開看獎勵 ✨', canvas.width / 2, canvas.height / 2);
-            ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.lineWidth = 25; ctx.globalCompositeOperation = 'destination-out';
-            let isDrawing = false;
-            function getPos(e) { const rect = canvas.getBoundingClientRect(); const evt = e.touches ? e.touches[0] : e; return { x: evt.clientX - rect.left, y: evt.clientY - rect.top }; }
-            canvas.onmousedown = (e) => { isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
-            canvas.onmousemove = (e) => { if (!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
-            window.onmouseup = () => isDrawing = false;
-            canvas.ontouchstart = (e) => { e.preventDefault(); isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
-            canvas.ontouchmove = (e) => { e.preventDefault(); if (!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
-            canvas.ontouchend = () => isDrawing = false;
-        }, 100);
-    } else {
-        rewardContainer.classList.add('hidden');
+            `;
+
+            let options = [
+                { text: `\\( \\displaystyle ${correctStr} \\)`, isCorrect: true, hint: wrapHint(msgCorrect, eqCorrectHtml) },
+                { text: `\\( \\displaystyle ${wrong1} \\)`, isCorrect: false, hint: wrapHint(msgFact4 + "<div class='text-sm text-slate-500 mb-2'>(請看正確拆解步驟)</div>", eqCorrectHtml) },
+                { text: `\\( \\displaystyle ${wrong2} \\)`, isCorrect: false, hint: wrapHint(msgFact4 + "<div class='text-sm text-slate-500 mb-2'>(請看正確拆解步驟)</div>", eqCorrectHtml) },
+                { text: `\\( \\displaystyle ${wrong3} \\)`, isCorrect: false, hint: wrapHint(msgFact3 + "<div class='text-sm text-slate-500 mb-2'>(提示：要尋找相乘等於常數項，相加等於中間項的組合)</div>", eqCorrectHtml) }
+            ];
+            qObj.options = shuffleArray(options).map((opt, idx) => ({...opt, id: String.fromCharCode(65 + idx)}));
+
+        } else if (levelType === '3' && subType === 'b') {
+            qObj.level = "⭐⭐⭐ 程度 3";
+            const pair = varPairs[getRandomInt(0, varPairs.length)];
+            const v1 = pair[0], v2 = pair[1];
+            let a, b;
+            do {
+                a = getRandomInt(-5, 6);
+                b = getRandomInt(-5, 6);
+            } while (a === 0 || b === 0 || a === -b || a === b);
+            let B = a + b;
+            let C = a * b;
+
+            let term2 = fmtB(B, v1 + v2);
+            let term3 = fmtB(C, v2 + '^2');
+
+            questionMathStr = `${v1}^2 ${term2} ${term3}`;
+            
+            let correctStr = `(${v1} ${fmtVarCoef(a, v2)})(${v1} ${fmtVarCoef(b, v2)})`;
+            let wrong1 = `(${v1} ${fmtVarCoef(-a, v2)})(${v1} ${fmtVarCoef(-b, v2)})`; 
+            let wrong2 = `(${v1} ${fmtVarCoef(-a, v2)})(${v1} ${fmtVarCoef(b, v2)})`;  
+            
+            let fakeA = a + 1;
+            let fakeB = b - 1;
+            if (fakeA === 0) fakeA = 2;
+            if (fakeB === 0) fakeB = -2;
+            let wrong3 = `(${v1} ${fmtVarCoef(fakeA, v2)})(${v1} ${fmtVarCoef(fakeB, v2)})`;
+
+            let crossDiagram = `\\begin{matrix} ${v1} & & ${fmtVarCoef(a, v2)} \\\\ & \\times & \\\\ ${v1} & & ${fmtVarCoef(b, v2)} \\end{matrix}`;
+            let crossEval = `(${v1})(${fmtVarCoef(b, v2)}) + (${v1})(${fmtVarCoef(a, v2)}) = ${fmtB(B, v1+v2).replace('+', '').trim()}`;
+
+            let eqCorrectHtml = `
+            <div class="text-left w-full">
+                <div class="my-2">\\( \\displaystyle ${v1}^2 ${term2} ${term3} \\)</div>
+                <details class="group my-2">
+                    <summary class="cursor-pointer text-indigo-500 hover:text-indigo-700 font-bold text-sm select-none flex items-center gap-1 outline-none ml-1">
+                        <svg class="w-5 h-5 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        查看十字相乘法步驟
+                    </summary>
+                    <div class="mt-4 pl-4 flex flex-col w-full overflow-x-auto math-scroll items-center bg-indigo-50 border border-indigo-100 p-4 rounded-lg">
+                        <div class="mb-3 text-xl">\\( \\displaystyle ${crossDiagram} \\)</div>
+                        <div class="text-sm text-slate-600 border-t border-indigo-200 pt-3 mt-1 w-full text-center">
+                            檢驗中間項：\\( \\displaystyle ${crossEval} \\)
+                        </div>
+                    </div>
+                </details>
+                <div class="my-2">\\( \\displaystyle = ${correctStr} \\)</div>
+            </div>
+            `;
+
+            let options = [
+                { text: `\\( \\displaystyle ${correctStr} \\)`, isCorrect: true, hint: wrapHint(msgCorrect, eqCorrectHtml) },
+                { text: `\\( \\displaystyle ${wrong1} \\)`, isCorrect: false, hint: wrapHint(msgFact4 + "<div class='text-sm text-slate-500 mb-2'>(請看正確拆解步驟)</div>", eqCorrectHtml) },
+                { text: `\\( \\displaystyle ${wrong2} \\)`, isCorrect: false, hint: wrapHint(msgFact4 + "<div class='text-sm text-slate-500 mb-2'>(請看正確拆解步驟)</div>", eqCorrectHtml) },
+                { text: `\\( \\displaystyle ${wrong3} \\)`, isCorrect: false, hint: wrapHint(msgFact3 + "<div class='text-sm text-slate-500 mb-2'>(提示：要尋找相乘等於常數項，相加等於中間項的組合)</div>", eqCorrectHtml) }
+            ];
+            qObj.options = shuffleArray(options).map((opt, idx) => ({...opt, id: String.fromCharCode(65 + idx)}));
+        }
+
+        qObj.question = `
+        <div class="mb-4 text-base sm:text-lg text-slate-600">對以下數式進行因式分解：</div>
+        <div class="text-xl sm:text-2xl font-bold text-indigo-700 py-4 overflow-x-auto math-scroll whitespace-nowrap w-full">
+            \\( \\displaystyle ${questionMathStr} \\)
+        </div>`;
+
+        bank.push(qObj);
     }
+    return bank;
 }
-
-function updateScoreDisplay() { document.getElementById('scoreDisplay').textContent = score; }
-
-function submitToGoogleSheet() {
-    const btn = document.getElementById('submitRecordBtn');
-    const statusText = document.getElementById('submitStatus');
-    const className = document.getElementById('className').value.trim();
-    const classNumber = document.getElementById('classNumber').value.trim();
-    const studentName = document.getElementById('studentName').value.trim();
-
-    if (!className || !classNumber || !studentName) {
-        statusText.textContent = "⚠️ 請填寫所有資料"; statusText.className = "text-center text-sm font-bold mt-3 text-red-500 block"; return;
-    }
-
-    btn.disabled = true; btn.textContent = "傳送中..."; btn.classList.add('opacity-50');
-    
-    let displayLevel = currentLevelPref === 'mixed' ? '綜合挑戰' : currentLevelPref.toString().toUpperCase();
-    let totalScoreVal = questionBank.length * 10;
-    let percentageVal = ((score / totalScoreVal) * 100).toFixed(0) + "%";
-
-    const formData = new URLSearchParams();
-    formData.append('className', className);
-    formData.append('classNumber', classNumber);
-    formData.append('studentName', studentName);
-    formData.append('topic', currentTopicName); 
-    formData.append('level', `程度 ${displayLevel}`);
-    formData.append('score', score);
-    formData.append('totalScore', totalScoreVal);
-    formData.append('percentage', percentageVal);
-
-    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData, mode: 'no-cors' })
-        .then(() => {
-            btn.textContent = "✅ 已成功傳送！"; btn.classList.replace('bg-green-600', 'bg-slate-400');
-            statusText.textContent = "成績已傳送給老師！"; statusText.className = "text-center text-sm font-bold mt-3 text-green-600 block";
-        })
-        .catch(err => {
-            btn.disabled = false; btn.textContent = "傳送成績"; btn.classList.remove('opacity-50');
-            statusText.textContent = "❌ 傳送失敗，請檢查網路。"; statusText.className = "text-center text-sm font-bold mt-3 text-red-500 block";
-        });
-}
-
-function renderMath() {
-    if (typeof renderMathInElement !== 'undefined') {
-        renderMathInElement(document.getElementById('main-wrapper'), { 
-            delimiters: [ {left: '$$', right: '$$', display: true}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false} ], 
-            throwOnError: false 
-        });
-    }
-}
-
-// --- 全域函數綁定 (修復 onclick 報錯) ---
-window.setQuestionNum = setQuestionNum;
-window.showTopicScreen = showTopicScreen;
-window.backToLevelSelection = backToLevelSelection;
-window.backToLevelSelectionFromQuiz = backToLevelSelectionFromQuiz;
-window.closeConfirmModal = closeConfirmModal;
-window.confirmBackToLevelSelection = confirmBackToLevelSelection;
-window.selectTopic = selectTopic;
-window.startGame = startGame;
-window.startGlobalMixed = startGlobalMixed;
-window.submitToGoogleSheet = submitToGoogleSheet;
-
-// --- 初始化載入 ---
-window.onload = () => { showTopicScreen(); fetchConfig(); };
