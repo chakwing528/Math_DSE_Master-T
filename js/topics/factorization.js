@@ -19,13 +19,13 @@ function generateFactorizationQuestions(num, levelPref) {
     for (let i = 0; i < num; i++) {
         let levelType = levelPref;
         if (levelPref === 'mixed') {
-            const types = ['1', '2', '3']; // 只取大範圍難度
+            const types = ['1', '2', '3'];
             levelType = types[getRandomInt(0, types.length)];
         } else {
             levelType = String(levelPref).toLowerCase();
         }
         
-        let subType = Math.random() > 0.5 ? 'a' : 'b'; // 在內部自動決定是 A 型或 B 型
+        let subType = Math.random() > 0.5 ? 'a' : 'b'; 
 
         // 為了相容可能從舊 URL 或暫存傳來的舊設定
         if (levelType === '2a' || levelType === '2b') {
@@ -233,7 +233,7 @@ function generateFactorizationQuestions(num, levelPref) {
             ];
             qObj.options = shuffleArray(options).map((opt, idx) => ({...opt, id: String.fromCharCode(65 + idx)}));
 
-        } else if (levelType === '3' && subType === 'b') {
+        } else {
             qObj.level = "⭐⭐⭐ 程度 3";
             const pair = varPairs[getRandomInt(0, varPairs.length)];
             const v1 = pair[0], v2 = pair[1];
