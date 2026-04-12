@@ -15,6 +15,31 @@ function generateExpansionQuestions(num, levelPref) {
     const singleVars = ['x', 'y', 'a', 'b', 'm', 'n']; 
     const varPairs = [['x', 'y'], ['a', 'b'], ['m', 'n'], ['p', 'q']];
 
+    // 輔助函數：從 Google Sheet 動態設定中取得難度標題與說明
+    function getLevelInfo(levelId, defaultTitle) {
+        let title = defaultTitle;
+        let desc = "";
+        
+        // 1. 先從系統預設備用設定中讀取
+        if (typeof fallbackConfigs !== 'undefined' && fallbackConfigs['expansion']) {
+            let lvl = fallbackConfigs['expansion'].levels.find(l => l.id === levelId);
+            if (lvl) {
+                if (lvl.title) title = lvl.title;
+                if (lvl.desc) desc = lvl.desc;
+            }
+        }
+        
+        // 2. 若 Google Sheet 有成功載入資料，則覆寫為最新設定
+        if (typeof dynamicTopicConfig !== 'undefined' && dynamicTopicConfig.length > 0) {
+            let custom = dynamicTopicConfig.find(c => c.topic === 'expansion' && c.levelId === levelId);
+            if (custom) {
+                if (custom.title) title = custom.title;
+                if (custom.desc) desc = custom.desc;
+            }
+        }
+        return { title, desc };
+    }
+
     // 輔助函數：格式化 (c1 v1 + c2 v2)
     function fmtBinomial(c1, v1, c2, v2) {
         let r = "";
@@ -75,19 +100,27 @@ function generateExpansionQuestions(num, levelPref) {
         let randA = getRandomInt(1, 11) * (Math.random() > 0.5 ? 1 : -1);
 
         if (levelType === '1') {
-            qObj.level = "⭐ 程度 1";
+            let info = getLevelInfo('L1', "⭐ 程度 1");
+            qObj.level = info.title;
+            qObj.desc = info.desc;
             c1 = 1;
             c2 = randA;
             v1 = singleVars[getRandomInt(0, singleVars.length)];
         } else if (levelType === '2') {
-            qObj.level = "⭐⭐ 程度 2";
-            c1 = getRandomInt(1, 6); // B為 1至5 的正整數
-            c2 = randA;              // A為 1至10 的正負整數
+            let info = getLevelInfo('L2', "⭐⭐ 程度 2");
+            qObj.level = info.title;
+            qObj.desc = info.desc;
+            // 確保 X 的係數 (c1) 絕對為 1-5 的正整數，杜絕出現負數
+            c1 = getRandomInt(1, 6); 
+            c2 = randA;              
             v1 = singleVars[getRandomInt(0, singleVars.length)];
         } else {
-            qObj.level = "⭐⭐⭐ 程度 3";
-            c1 = getRandomInt(1, 6); // A為 1至5 的正整數
-            c2 = randA;              // B為 1至10 的正負整數
+            let info = getLevelInfo('L3', "⭐⭐⭐ 程度 3");
+            qObj.level = info.title;
+            qObj.desc = info.desc;
+            // 確保第一變數的係數 (c1) 絕對為 1-5 的正整數
+            c1 = getRandomInt(1, 6); 
+            c2 = randA;              
             let pair = varPairs[getRandomInt(0, varPairs.length)];
             v1 = pair[0];
             v2 = pair[1];            // 啟動雙變數模式
