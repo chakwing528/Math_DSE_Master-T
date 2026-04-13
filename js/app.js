@@ -160,8 +160,7 @@ function startGlobalMixed(level) {
             let qArr = [];
             let lvl = String(level);
             
-            // 🌟 修正：通用降階保護機制 (防呆設計)
-            // 自動判斷該課題支援的最高難度。若要求的難度大於支援範圍，自動向下降階
+            // 🌟 通用降階保護機制 (防呆設計)
             let supportedIds = fallbackConfigs[t].levels.map(l => l.id);
             let maxSupported = 1;
             if (supportedIds.some(id => id.includes('3'))) maxSupported = 3;
@@ -186,7 +185,6 @@ function startGlobalMixed(level) {
             }
         });
 
-        // 設定好題目後切換畫面 (確保修復重新挑戰時的問題)
         currentQuestionIndex = 0; score = 0; updateScoreDisplay();
         document.getElementById('topicScreen').classList.add('hidden');
         document.getElementById('startScreen').classList.add('hidden');
@@ -230,7 +228,7 @@ function startGame(levelPref) {
         
         currentQuestionIndex = 0; score = 0; updateScoreDisplay();
         document.getElementById('startScreen').classList.add('hidden');
-        document.getElementById('endScreen').classList.add('hidden'); // 👈 確保重做時隱藏結算畫面
+        document.getElementById('endScreen').classList.add('hidden'); 
         document.getElementById('appContainer').classList.remove('hidden');
         
         const btn = document.getElementById('submitRecordBtn');
@@ -341,8 +339,12 @@ function showEndScreen() {
             <div class="relative w-full h-20 sm:h-24 rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm" style="touch-action:none;">
                 <div class="absolute inset-0 flex items-center justify-center bg-pink-50 text-pink-600 font-bold px-4 text-center text-sm sm:text-base">🎁 ${selectedQuote.reward}</div>
                 <canvas id="scratchCanvas" class="absolute inset-0 w-full h-full z-10 cursor-pointer"></canvas>
+                <div id="scratchLockOverlay" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-200/95 backdrop-blur-sm transition-opacity duration-300">
+                    <span class="text-xl mb-1">🔒</span>
+                    <span class="text-sm font-bold text-slate-600 tracking-wide">傳送成績後解鎖</span>
+                </div>
             </div>
-            <div class="text-xs text-slate-400 mt-2 text-center">💡 刮開塗層看獎勵</div>
+            <div class="text-xs text-slate-400 mt-2 text-center">💡 傳送成績後，刮開塗層看獎勵</div>
         `;
         
         setTimeout(() => {
@@ -400,6 +402,13 @@ function submitToGoogleSheet() {
         .then(() => {
             btn.textContent = "✅ 已成功傳送！"; btn.classList.replace('bg-green-600', 'bg-slate-400');
             statusText.textContent = "成績已傳送給老師！"; statusText.className = "text-center text-sm font-bold mt-3 text-green-600 block";
+            
+            // 🌟 成功送出成績後，解除刮刮卡的鎖定遮罩
+            const lockOverlay = document.getElementById('scratchLockOverlay');
+            if (lockOverlay) {
+                lockOverlay.style.opacity = '0';
+                setTimeout(() => lockOverlay.classList.add('hidden'), 300); // 配合 CSS 動畫淡出
+            }
         })
         .catch(err => {
             btn.disabled = false; btn.textContent = "傳送成績"; btn.classList.remove('opacity-50');
