@@ -1239,7 +1239,7 @@ function renderLeaderboards(overrideClass = null, overrideName = null) {
         <div class="flex justify-between items-center ${bgClass} p-3 rounded-lg border shadow-sm transition-all">
             <div class="flex items-center gap-2">
                 ${rankIcon}
-                <span class="font-bold ${textClass}">${student.className} ${student.studentName}${highlightBadge}</span>
+                <span class="font-bold ${textClass}">${student.className} (${student.classNum}) ${student.studentName}${highlightBadge}</span>
             </div>
             <div class="${scoreClass} font-bold">${student.totalScore} 分</div>
         </div>
