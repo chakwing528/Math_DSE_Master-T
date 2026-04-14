@@ -295,7 +295,7 @@
     </div>
 
     <div class="fixed bottom-3 left-3 text-slate-400 font-medium text-sm z-50">
-        版本：V59 (勤學排行榜與資料記憶功能)
+        版本：V60 (修復展開提示訊息遺失)
     </div>
 
     <!-- ========================================== -->
@@ -1004,8 +1004,12 @@ function generateBinaryQuestions(num, levelPref) {
     return bank;
 }
 
-
 // --- 恆等式的展開 (Expansion) ---
+// 🌟 這裡補回遺失的展開錯誤提示訊息
+const msgExp1 = `<div class="text-red-600 font-bold text-lg mb-1">❗ 忘記了中間項 2ab</div>`;
+const msgExp2 = `<div class="text-red-600 font-bold text-lg mb-1">❗ 展開符號發生錯誤</div>`;
+const msgExp3 = `<div class="text-red-600 font-bold text-lg mb-1">❗ 係數平方計算錯誤</div>`;
+
 function generateExpansionQuestions(num, levelPref) {
     const bank = [];
     const singleVars = ['x', 'y', 'a', 'b', 'm', 'n']; 
@@ -1137,7 +1141,7 @@ let currentTopicName = '指數定律';
 let totalQuestionsConfig = 3; 
 let dynamicQuotes = [];
 let dynamicTopicConfig = [];
-let globalLeaderboard = []; // 🌟 新增排行榜全域變數
+let globalLeaderboard = []; 
 
 async function fetchConfig() {
     try {
@@ -1149,7 +1153,7 @@ async function fetchConfig() {
                 if (data.topicConfig) dynamicTopicConfig = data.topicConfig;
                 if (data.leaderboard) {
                     globalLeaderboard = data.leaderboard;
-                    renderLeaderboards(); // 🌟 抓取成功後立刻渲染排行榜
+                    renderLeaderboards(); 
                 }
                 console.log("✅ 成功從統一 Google Sheet 載入座右銘、設定與排行榜！");
             }
@@ -1159,7 +1163,6 @@ async function fetchConfig() {
     }
 }
 
-// 🌟 渲染排行榜畫面
 function renderLeaderboards() {
     if (!globalLeaderboard || globalLeaderboard.length === 0) return;
     
@@ -1171,7 +1174,6 @@ function renderLeaderboards() {
         else if (index === 2) rankIcon = '🥉';
         else rankIcon = `<span class="inline-block w-6 text-center text-slate-400 font-bold text-sm">${index + 1}.</span>`;
         
-        // 只顯示班別、姓名，並顯示分數。隱藏學號保護隱私。
         html += `
         <div class="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-100 shadow-sm">
             <div class="flex items-center gap-2">
@@ -1189,7 +1191,6 @@ function renderLeaderboards() {
     if (homeContainer) homeContainer.innerHTML = html;
     if (endContainer) endContainer.innerHTML = html;
     
-    // 顯示排行榜區塊
     document.getElementById('leaderboard-home')?.classList.remove('hidden');
     document.getElementById('leaderboard-end')?.classList.remove('hidden');
 }
