@@ -1177,7 +1177,7 @@ async function fetchConfig(isSilent = false) {
     }
 }
 
-function renderLeaderboards() {
+function renderLeaderboards(overrideClass = null, overrideName = null) {
     const homeContainer = document.getElementById('leaderboard-home-container');
     const endContainer = document.getElementById('leaderboard-end-container');
     const myRankHome = document.getElementById('my-rank-home');
@@ -1194,23 +1194,28 @@ function renderLeaderboards() {
         return;
     }
     
-    const currentUserClass = localStorage.getItem('dse_className') || '';
-    const currentUserName = localStorage.getItem('dse_studentName') || '';
+    // 🌟 優先使用剛輸入的即時名字，否則才使用 localStorage (徹底解決不同步問題)
+    const currentUserClass = (overrideClass || localStorage.getItem('dse_className') || '').toUpperCase().trim();
+    const currentUserName = (overrideName || localStorage.getItem('dse_studentName') || '').toUpperCase().trim();
 
     let html = '';
     let userRank = -1;
     let userScore = 0;
+    let userMatched = false;
 
-    // 1. 先計算使用者的名次 (即使他在 20 名之後也能知道名次)
+    // 1. 尋找使用者的最高名次
     globalLeaderboard.forEach((student, index) => {
-        const isCurrentUser = (student.className === currentUserClass && student.studentName === currentUserName);
-        if (isCurrentUser) {
+        const sClass = String(student.className).toUpperCase().trim();
+        const sName = String(student.studentName).toUpperCase().trim();
+        
+        if (sClass === currentUserClass && sName === currentUserName && !userMatched) {
             userRank = index + 1;
             userScore = student.totalScore;
+            userMatched = true;
         }
     });
 
-    // 2. 渲染排行榜，嚴格限制只顯示前 20 名
+    // 2. 渲染排行榜，限制只顯示前 20 名
     globalLeaderboard.slice(0, 20).forEach((student, index) => {
         let rankIcon = '';
         if (index === 0) rankIcon = '🥇';
@@ -1218,11 +1223,17 @@ function renderLeaderboards() {
         else if (index === 2) rankIcon = '🥉';
         else rankIcon = `<span class="inline-block w-6 text-center text-slate-400 font-bold text-sm">${index + 1}.</span>`;
         
-        const isCurrentUser = (student.className === currentUserClass && student.studentName === currentUserName);
-        const bgClass = isCurrentUser ? 'bg-amber-100 border-amber-400 ring-2 ring-amber-300' : 'bg-white border-slate-100';
-        const textClass = isCurrentUser ? 'text-amber-800' : 'text-slate-700';
-        const scoreClass = isCurrentUser ? 'text-amber-700' : 'text-indigo-600';
-        const highlightBadge = isCurrentUser ? `<span class="ml-2 text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full">你</span>` : '';
+        const sClass = String(student.className).toUpperCase().trim();
+        const sName = String(student.studentName).toUpperCase().trim();
+        const isMe = (sClass === currentUserClass && sName === currentUserName);
+        
+        // 只在該使用者的「最高分」紀錄標記高亮
+        const isHighestMe = isMe && (index + 1 === userRank);
+
+        const bgClass = isHighestMe ? 'bg-amber-100 border-amber-400 ring-2 ring-amber-300' : 'bg-white border-slate-100';
+        const textClass = isHighestMe ? 'text-amber-800' : 'text-slate-700';
+        const scoreClass = isHighestMe ? 'text-amber-700' : 'text-indigo-600';
+        const highlightBadge = isHighestMe ? `<span class="ml-2 text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full">你</span>` : '';
 
         html += `
         <div class="flex justify-between items-center ${bgClass} p-3 rounded-lg border shadow-sm transition-all">
@@ -1528,7 +1539,6 @@ function showEndScreen() {
     
     if (selectedQuote.reward && selectedQuote.reward.trim() !== "") {
         rewardContainer.classList.remove('hidden');
-        // 保存獎勵字串，供送出時使用
         rewardContainer.dataset.reward = selectedQuote.reward;
         rewardContainer.innerHTML = `
             <div class="relative w-full h-20 sm:h-24 rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm" style="touch-action:none;">
@@ -1584,6 +1594,38 @@ function submitToGoogleSheet() {
 
     btn.disabled = true; btn.textContent = "傳送中..."; btn.classList.add('opacity-50');
     
+    // 🌟 前端即時預測加分機制
+    isFetchingLock = true; 
+    const searchClass = className.toUpperCase().trim();
+    const searchName = studentName.toUpperCase().trim();
+    
+    let found = false;
+    for (let i = 0; i < globalLeaderboard.length; i++) {
+        const sClass = String(globalLeaderboard[i].className).toUpperCase().trim();
+        const sName = String(globalLeaderboard[i].studentName).toUpperCase().trim();
+        if (sClass === searchClass && sName === searchName) {
+            globalLeaderboard[i].totalScore += score;
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        globalLeaderboard.push({
+            className: searchClass,
+            classNum: classNumber,
+            studentName: studentName.trim(), 
+            totalScore: score
+        });
+    }
+    
+    // 重新排序
+    globalLeaderboard.sort((a, b) => b.totalScore - a.totalScore);
+    currentLeaderboardHash = JSON.stringify(globalLeaderboard);
+    
+    // 🌟 關鍵修正：將畫面上剛輸入的資料強行傳入函數，保證 UI 100% 精準判定
+    renderLeaderboards(className, studentName);
+
+    // 🌟 背景傳送至 Google Sheet
     let displayLevel = currentLevelPref === 'mixed' ? '綜合挑戰' : currentLevelPref.toString().toUpperCase();
     let totalScoreVal = questionBank.length * 10;
     let percentageVal = ((score / totalScoreVal) * 100).toFixed(0) + "%";
@@ -1616,13 +1658,16 @@ function submitToGoogleSheet() {
                 setTimeout(() => lockOverlay.classList.add('hidden'), 300);
             }
 
+            // 等待伺服器消化完畢後解除鎖定，並重抓最新資料
             setTimeout(() => {
+                isFetchingLock = false;
                 fetchConfig(true);
-            }, 2000);
+            }, 10000);
         })
         .catch(err => {
             btn.disabled = false; btn.textContent = "傳送成績"; btn.classList.remove('opacity-50');
             statusText.textContent = "❌ 傳送失敗，請檢查網路。"; statusText.className = "text-center text-sm font-bold mt-3 text-red-500 block";
+            isFetchingLock = false;
         });
 }
 
