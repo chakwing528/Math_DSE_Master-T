@@ -440,11 +440,17 @@ function submitToGoogleSheet() {
                 let backendNewTotal = parseInt(data.newTotalScore) || 0;
                 let backendPlayCount = parseInt(data.playCountToday) || 1;
                 let isCrossed = data.crossedThreshold;
+                let officialName = data.officialName || studentName; // 🌟 接收後台回傳的官方白名單名字
                 
                 // 強制更新本地端排行榜快取，確保下一輪進度顯示精準
                 let student = globalLeaderboard.find(s => String(s.className).toUpperCase().trim() === className.toUpperCase() && String(s.classNum).trim() === classNumber);
-                if (student) { student.totalScore = backendNewTotal; } 
-                else { globalLeaderboard.push({className: className, classNum: classNumber, studentName: studentName, totalScore: backendNewTotal}); }
+                if (student) { 
+                    student.totalScore = backendNewTotal; 
+                    // 🌟 保留官方排行榜中的名字，不被本地輸入覆蓋
+                } 
+                else { 
+                    globalLeaderboard.push({className: className, classNum: classNumber, studentName: officialName, totalScore: backendNewTotal}); 
+                }
                 renderLeaderboards();
 
                 // 計算最新進度
