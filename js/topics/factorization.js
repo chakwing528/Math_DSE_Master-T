@@ -42,31 +42,53 @@ function generateFactorizationQuestions(num, levelPref) {
         if (levelType === '1') {
             qObj.level = "⭐ 程度 1";
             const v = singleVars[getRandomInt(0, singleVars.length)];
-            let c = getRandomInt(2, 6);
-            let k = getRandomInt(2, 7);
-            if(c === k) k += 1; 
-            let sign = Math.random() > 0.5 ? 1 : -1;
-            let signStr = sign > 0 ? '+' : '-';
-            let ckAbs = c * k; 
-
-            questionMathStr = `${c}${v}^2 ${signStr} ${ckAbs}${v}`;
             
-            let correctStr = `${c}${v}(${v} ${signStr} ${k})`;
-            let wrong1 = `${v}(${c}${v} ${signStr} ${ckAbs})`; // 漏數字
-            let wrong2 = `${c}(${v}^2 ${signStr} ${k}${v})`; // 漏變數
-            let wrong3 = `${c}${v}(${v} ${sign > 0 ? '-' : '+'} ${k})`; // 符號錯
+            let A, B;
+            do {
+                // 產生 -9 到 9 的隨機數 (避開 0)
+                A = getRandomInt(-9, 10); 
+                B = getRandomInt(-9, 10);
+            } while (A === 0 || B === 0);
+
+            // 格式化題目：A x^2 + B x
+            let term1 = (A === 1) ? `${v}^2` : (A === -1 ? `-${v}^2` : `${A}${v}^2`);
+            let term2 = (B === 1) ? `+ ${v}` : (B === -1 ? `- ${v}` : (B > 0 ? `+ ${B}${v}` : `- ${Math.abs(B)}${v}`));
+            questionMathStr = `${term1} ${term2}`;
+            
+            // 尋找最大公因數 g
+            let g = gcd(A, B);
+            if (A < 0) g = -g; // 習慣上首項為負時，連同負號一起提出
+            
+            let d = A / g; // 括號內首項係數
+            let e = B / g; // 括號內次項係數
+            
+            // 輔助函數：組成 c x(d x + e) 的字串
+            function makeFactoredStr(coefOut, coefInX, coefInC, variable) {
+                let outStr = coefOut === 1 ? variable : (coefOut === -1 ? `-${variable}` : `${coefOut}${variable}`);
+                let inXStr = coefInX === 1 ? variable : (coefInX === -1 ? `-${variable}` : `${coefInX}${variable}`);
+                let inCStr = coefInC > 0 ? `+ ${coefInC}` : `- ${Math.abs(coefInC)}`;
+                return `${outStr}(${inXStr} ${inCStr})`;
+            }
+
+            let correctStr = makeFactoredStr(g, d, e, v);
+            let wrong1 = makeFactoredStr(g, d, -e, v); // 括號內符號錯誤
+            let wrong2 = makeFactoredStr(-g, d, e, v); // 外面提出的正負號錯誤
+            
+            // 若有數字公因數卻只提 x，否則製造一個亂提數字的干擾項
+            let wrong3 = Math.abs(g) > 1 
+                ? makeFactoredStr(g > 0 ? 1 : -1, g > 0 ? A : -A, g > 0 ? B : -B, v) 
+                : makeFactoredStr(2, d, e, v); 
 
             let eqCorrect = buildEq([
-                { text: `${c}${v}^2 ${signStr} ${ckAbs}${v}`, hide: false },
-                { text: `${c}${v}(${v}) ${signStr} ${c}${v}(${k})`, hide: true },
+                { text: questionMathStr, hide: false },
                 { text: correctStr, hide: false }
             ]);
 
             let options = [
                 { text: `\\( \\displaystyle ${correctStr} \\)`, isCorrect: true, hint: wrapHint(msgCorrect, eqCorrect) },
-                { text: `\\( \\displaystyle ${wrong1} \\)`, isCorrect: false, hint: wrapHint(msgFact1 + "<div class='text-sm text-slate-500 mb-2'>(提示：數字部份也可以抽出公因式喔！)</div>", buildEq([{text: `${c}${v}^2 ${signStr} ${ckAbs}${v}`, hide: false}, {text: `${c}${v}(${v}) ${signStr} ${c}${v}(${k})`, hide: true}, {text: correctStr, hide: false}])) },
-                { text: `\\( \\displaystyle ${wrong2} \\)`, isCorrect: false, hint: wrapHint(msgFact1 + "<div class='text-sm text-slate-500 mb-2'>(提示：變數也可以抽出公因式喔！)</div>", buildEq([{text: `${c}${v}^2 ${signStr} ${ckAbs}${v}`, hide: false}, {text: `${c}${v}(${v}) ${signStr} ${c}${v}(${k})`, hide: true}, {text: correctStr, hide: false}])) },
-                { text: `\\( \\displaystyle ${wrong3} \\)`, isCorrect: false, hint: wrapHint(msgFact4, buildEq([{text: `${c}${v}^2 ${signStr} ${ckAbs}${v}`, hide: false}, {text: `${c}${v}(${v}) ${signStr} ${c}${v}(${k})`, hide: true}, {text: correctStr, hide: false}])) }
+                { text: `\\( \\displaystyle ${wrong1} \\)`, isCorrect: false, hint: wrapHint(msgFact4 + "<div class='text-sm text-slate-500 mb-2'>(提示：留意括號內的正負號)</div>", eqCorrect) },
+                { text: `\\( \\displaystyle ${wrong2} \\)`, isCorrect: false, hint: wrapHint(msgFact4 + "<div class='text-sm text-slate-500 mb-2'>(提示：提出負號時，括號內的符號會發生改變)</div>", eqCorrect) },
+                { text: `\\( \\displaystyle ${wrong3} \\)`, isCorrect: false, hint: wrapHint(msgFact1 + "<div class='text-sm text-slate-500 mb-2'>(提示：檢查是否已提出所有數字的公因數)</div>", eqCorrect) }
             ];
             qObj.options = shuffleArray(options).map((opt, idx) => ({...opt, id: String.fromCharCode(65 + idx)}));
 
