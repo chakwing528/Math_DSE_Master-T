@@ -9,34 +9,36 @@ const msgFracMulDiv3 = `<div class="text-red-600 font-bold text-lg mb-1">❗ 忘
 const msgFracMulDiv4 = `<div class="text-red-600 font-bold text-lg mb-1">❗ 因式分解未完全或錯誤</div>`;
 
 // ==========================================
-// 🌟 仿教師紅筆批改系統 (視覺化約簡)
+// 🌟 仿教師紅筆批改系統 (視覺化跨項約簡)
 // ==========================================
+const colors = ['#ef4444', '#3b82f6', '#16a34a', '#f97316', '#a855f7']; // 紅, 藍, 綠, 橘, 紫
+
 // 畫掉整個項目並在上方或下方寫上新數值
-const cancelNode = (oldStr, newStr, pos) => {
-    if (oldStr === newStr) return oldStr;
-    if (newStr === "" || newStr === "1") return `\\color{red}{\\cancel{\\color{black}{${oldStr}}}}`;
-    return pos === 'top' 
-        ? `\\overset{\\color{red}{${newStr}}}{\\color{red}{\\cancel{\\color{black}{${oldStr}}}}}`
-        : `\\underset{\\color{red}{${newStr}}}{\\color{red}{\\cancel{\\color{black}{${oldStr}}}}}`;
+const cancelTermNode = (oldTerm, newTerm, pos, color = '#ef4444') => {
+    if (oldTerm === newTerm) return oldTerm === "1" ? "" : (oldTerm === "-1" ? "-" : oldTerm);
+    if (oldTerm === "1" || oldTerm === "") return newTerm === "1" ? "" : (newTerm === "-1" ? "-" : newTerm);
+    if (newTerm === "1" || newTerm === "") return `\\color{${color}}{\\cancel{\\color{black}{${oldTerm}}}}`;
+    if (newTerm === "-1") return `\\underset{\\color{${color}}{-1}}{\\color{${color}}{\\cancel{\\color{black}{${oldTerm}}}}}`; 
+    return pos === 'top'
+        ? `\\overset{\\color{${color}}{${newTerm}}}{\\color{${color}}{\\cancel{\\color{black}{${oldTerm}}}}}`
+        : `\\underset{\\color{${color}}{${newTerm}}}{\\color{${color}}{\\cancel{\\color{black}{${oldTerm}}}}}`;
 };
 
-// 專門用於畫掉次方數 (如：把 ^2 畫掉)
-const cancelPwrNode = (base, oldP, newP) => {
-    if (oldP === newP) return `${base}^{${oldP}}`;
-    if (newP === "" || newP === "1") {
-        return `${base}^{\\color{red}{\\cancel{\\color{black}{${oldP}}}}}`;
-    }
-    return `${base}^{\\overset{\\color{red}{${newP}}}{\\color{red}{\\cancel{\\color{black}{${oldP}}}}}}`;
+// 專門用於畫掉次方數 (例如完美還原老師劃掉 (x+2)^2 的二次方)
+const cancelSquareNode = (base, color = '#ef4444') => {
+    return `${base}^{\\color{${color}}{\\cancel{\\color{black}{2}}}}`;
 };
 
-// 結合係數與變數，隱藏多餘的 1
-const combineTerm = (strC, strV) => {
-    if (strC === "1" && strV !== "1") return strV;
-    if (strV === "1") return strC;
-    return strC + strV;
+// 連接各個被畫掉的項 (隱藏多餘的 1)
+const joinTerms = (...strs) => {
+    let res = strs.filter(s => s !== "").join("");
+    if (res === "" || res === "-") return res + "1";
+    return res;
 };
 
+// 變數格式化 (自動處理 1 次方與 0 次方)
 const formatVar = (v, p) => p === 0 ? "1" : (p === 1 ? v : `${v}^{${p}}`);
+const getCStr = (c) => c === 1 ? "" : (c === -1 ? "-" : c.toString());
 
 // ==========================================
 // 專用強大分數排版工具 (用於最終答案顯示)
@@ -93,78 +95,65 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
         let opStr = isDiv ? "\\div" : "\\times";
 
         // =====================================
-        // 程度 1：單項式乘除 (指數定律與基本約簡)
+        // 程度 1：單項式乘除 (指數定律與跨項約簡)
         // =====================================
         if (levelType === '1') {
             qObj.level = "⭐ 程度 1";
             let v1 = singleVars[getRandomInt(0, 3)]; 
             let v2 = singleVars[getRandomInt(3, 6)]; 
             
-            let A = getRandomInt(2, 8); let B = getRandomInt(2, 8);
-            let C = getRandomInt(2, 8); let D = getRandomInt(2, 8);
+            let A = getRandomInt(2, 8), B = getRandomInt(2, 8);
+            let C = getRandomInt(2, 8), D = getRandomInt(2, 8);
             let p1 = getRandomInt(1, 5), q1 = getRandomInt(1, 5);
             let p2 = getRandomInt(1, 5), q2 = getRandomInt(1, 5);
 
-            let n1Str = combineTerm(A.toString(), formatVar(v1, p1));
-            let d1Str = combineTerm(B.toString(), formatVar(v2, q1));
+            let n1Str = joinTerms(A.toString(), formatVar(v1, p1));
+            let d1Str = joinTerms(B.toString(), formatVar(v2, q1));
+            let multN2Str = joinTerms(C.toString(), formatVar(v2, q2));
+            let multD2Str = joinTerms(D.toString(), formatVar(v1, p2));
             
-            let n2Str, d2Str;
-            if (isDiv) {
-                n2Str = combineTerm(D.toString(), formatVar(v1, p2));
-                d2Str = combineTerm(C.toString(), formatVar(v2, q2));
-            } else {
-                n2Str = combineTerm(C.toString(), formatVar(v2, q2));
-                d2Str = combineTerm(D.toString(), formatVar(v1, p2));
-            }
+            let n2Str = isDiv ? multD2Str : multN2Str;
+            let d2Str = isDiv ? multN2Str : multD2Str;
 
             questionMathStr = `\\frac{${n1Str}}{${d1Str}} ${opStr} \\frac{${n2Str}}{${d2Str}}`;
             
-            // 約簡計算邏輯
-            let origA = A, origB = B, origC = C, origD = D;
+            // 約簡計算邏輯 (跨分數約簡)
             let a_val = A, b_val = B, c_val = C, d_val = D;
             let g1 = gcd(a_val, b_val); a_val /= g1; b_val /= g1;
             let g2 = gcd(c_val, d_val); c_val /= g2; d_val /= g2;
             let g3 = gcd(a_val, d_val); a_val /= g3; d_val /= g3;
             let g4 = gcd(c_val, b_val); c_val /= g4; b_val /= g4;
             
-            let strA = cancelNode(origA.toString(), a_val.toString(), 'top');
-            let strB = cancelNode(origB.toString(), b_val.toString(), 'bottom');
-            let strC = cancelNode(origC.toString(), c_val.toString(), 'top');
-            let strD = cancelNode(origD.toString(), d_val.toString(), 'bottom');
+            let strA = cancelTermNode(A.toString(), a_val.toString(), 'top', colors[0]);
+            let strB = cancelTermNode(B.toString(), b_val.toString(), 'bottom', colors[0]);
+            let strC = cancelTermNode(C.toString(), c_val.toString(), 'top', colors[0]);
+            let strD = cancelTermNode(D.toString(), d_val.toString(), 'bottom', colors[0]);
 
-            let origP1 = p1, origP2 = p2;
             let newP1 = p1, newP2 = p2;
             if (p1 > p2) { newP1 = p1 - p2; newP2 = 0; }
             else if (p1 < p2) { newP1 = 0; newP2 = p2 - p1; }
             else { newP1 = 0; newP2 = 0; }
+            let strV1_N = cancelTermNode(formatVar(v1, p1), formatVar(v1, newP1), 'top', colors[1]);
+            let strV1_D = cancelTermNode(formatVar(v1, p2), formatVar(v1, newP2), 'bottom', colors[1]);
 
-            let strV1_N1 = cancelNode(formatVar(v1, origP1), formatVar(v1, newP1), 'top');
-            let strV1_D2 = cancelNode(formatVar(v1, origP2), formatVar(v1, newP2), 'bottom');
-
-            let origQ1 = q1, origQ2 = q2;
             let newQ1 = q1, newQ2 = q2;
             if (q2 > q1) { newQ2 = q2 - q1; newQ1 = 0; }
             else if (q2 < q1) { newQ2 = 0; newQ1 = q1 - q2; }
             else { newQ2 = 0; newQ1 = 0; }
+            let strV2_N = cancelTermNode(formatVar(v2, q2), formatVar(v2, newQ2), 'top', colors[2]);
+            let strV2_D = cancelTermNode(formatVar(v2, q1), formatVar(v2, newQ1), 'bottom', colors[2]);
 
-            let strV2_N2 = cancelNode(formatVar(v2, origQ2), formatVar(v2, newQ2), 'top');
-            let strV2_D1 = cancelNode(formatVar(v2, origQ1), formatVar(v2, newQ1), 'bottom');
-
-            let stepN1 = combineTerm(strA, strV1_N1);
-            let stepD1 = combineTerm(strB, strV2_D1);
-            let stepN2 = combineTerm(strC, strV2_N2);
-            let stepD2 = combineTerm(strD, strV1_D2);
-
-            let multN2Str = combineTerm(C.toString(), formatVar(v2, q2));
-            let multD2Str = combineTerm(D.toString(), formatVar(v1, p2));
-            let multStep1 = `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${multN2Str}}{${multD2Str}}`;
-            let multStep2 = `\\frac{${stepN1}}{${stepD1}} \\times \\frac{${stepN2}}{${stepD2}}`;
+            // 組合約簡後的跨項分式
+            let stepN1 = joinTerms(strA, strV1_N);
+            let stepD1 = joinTerms(strB, strV2_D);
+            let stepN2 = joinTerms(strC, strV2_N);
+            let stepD2 = joinTerms(strD, strV1_D);
             
             let correctStr = formatFracAll(A*C, B*D, v1, p1-p2, v2, q2-q1, "", 0);
 
             let steps = [{text: questionMathStr, hide: false}];
-            if (isDiv) steps.push({text: multStep1, hide: false});
-            steps.push({text: multStep2, hide: false});
+            if (isDiv) steps.push({text: `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${multN2Str}}{${multD2Str}}`, hide: false});
+            steps.push({text: `\\frac{${stepN1}}{${stepD1}} \\times \\frac{${stepN2}}{${stepD2}}`, hide: false});
             steps.push({text: correctStr, hide: false});
 
             let eqCorrectHtml = wrapHint(msgCorrect, buildEq(steps));
@@ -201,62 +190,59 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
             let q1 = getRandomInt(1, 4), q2 = getRandomInt(1, 4);
             let k = getRandomInt(1, 6);
 
-            let steps = []; let correctStr = ""; let bStr = "";
+            let steps = []; let correctStr = "";
             let options = [];
 
             if (type === 0) { // 提公因式約簡
                 let a = getRandomInt(2, 5), d = getRandomInt(2, 5);
                 let sign = Math.random() > 0.5 ? 1 : -1;
+                
+                let bStr = `(${v} ${sign > 0 ? '+' : '-'} ${k})`;
+                
                 let n1Str = `${a}${v} ${sign > 0 ? '+' : '-'} ${a*k}`; 
-                let d1Str = combineTerm(b.toString(), formatVar(v2, q1));
+                let d1Str = joinTerms(b.toString(), formatVar(v2, q1));
+                let multN2Str = joinTerms(c.toString(), formatVar(v2, q2));
+                let multD2Str = `${d}${v} ${sign > 0 ? '+' : '-'} ${d*k}`; 
                 
-                let n2Raw = combineTerm(c.toString(), formatVar(v2, q2));
-                let d2Raw = `${d}${v} ${sign > 0 ? '+' : '-'} ${d*k}`; 
-                
-                let n2Str = isDiv ? d2Raw : n2Raw;
-                let d2Str = isDiv ? n2Raw : d2Raw;
+                let n2Str = isDiv ? multD2Str : multN2Str;
+                let d2Str = isDiv ? multN2Str : multD2Str;
                 questionMathStr = `\\frac{${n1Str}}{${d1Str}} ${opStr} \\frac{${n2Str}}{${d2Str}}`;
 
-                bStr = `(${v} ${sign > 0 ? '+' : '-'} ${k})`;
-                
-                let origA = a, origB = b, origC = c, origD = d;
+                let factoredN1 = `${a}${bStr}`;
+                let factoredD1 = d1Str;
+                let factoredN2 = multN2Str;
+                let factoredD2 = `${d}${bStr}`;
+
                 let a_val = a, b_val = b, c_val = c, d_val = d;
                 let g1 = gcd(a_val, b_val); a_val /= g1; b_val /= g1;
                 let g2 = gcd(c_val, d_val); c_val /= g2; d_val /= g2;
                 let g3 = gcd(a_val, d_val); a_val /= g3; d_val /= g3;
                 let g4 = gcd(c_val, b_val); c_val /= g4; b_val /= g4;
 
-                let strA = cancelNode(origA.toString(), a_val.toString(), 'top');
-                let strB = cancelNode(origB.toString(), b_val.toString(), 'bottom');
-                let strC = cancelNode(origC.toString(), c_val.toString(), 'top');
-                let strD = cancelNode(origD.toString(), d_val.toString(), 'bottom');
+                let strA = cancelTermNode(a.toString(), a_val.toString(), 'top', colors[0]);
+                let strB = cancelTermNode(b.toString(), b_val.toString(), 'bottom', colors[0]);
+                let strC = cancelTermNode(c.toString(), c_val.toString(), 'top', colors[0]);
+                let strD = cancelTermNode(d.toString(), d_val.toString(), 'bottom', colors[0]);
 
-                let origQ1 = q1, origQ2 = q2;
                 let newQ1 = q1, newQ2 = q2;
                 if (q2 > q1) { newQ2 = q2 - q1; newQ1 = 0; }
                 else if (q2 < q1) { newQ2 = 0; newQ1 = q1 - q2; }
                 else { newQ2 = 0; newQ1 = 0; }
+                let strV2_N = cancelTermNode(formatVar(v2, q2), formatVar(v2, newQ2), 'top', colors[1]);
+                let strV2_D = cancelTermNode(formatVar(v2, q1), formatVar(v2, newQ1), 'bottom', colors[1]);
 
-                let strV2_N2 = cancelNode(formatVar(v2, origQ2), formatVar(v2, newQ2), 'top');
-                let strV2_D1 = cancelNode(formatVar(v2, origQ1), formatVar(v2, newQ1), 'bottom');
+                let strBStr_N = cancelTermNode(bStr, "1", 'top', colors[2]);
+                let strBStr_D = cancelTermNode(bStr, "1", 'bottom', colors[2]);
 
-                let strBStr_N1 = cancelNode(bStr, "1", 'top');
-                let strBStr_D2 = cancelNode(bStr, "1", 'bottom');
-
-                let stepN1 = combineTerm(strA, strBStr_N1);
-                let stepD1 = combineTerm(strB, strV2_D1);
-                let stepN2 = combineTerm(strC, strV2_N2);
-                let stepD2 = combineTerm(strD, strBStr_D2);
-
-                let factoredN1 = `${a}${bStr}`;
-                let factoredD1 = d1Str;
-                let factoredN2 = n2Raw;
-                let factoredD2 = d2Raw;
+                let stepN1 = joinTerms(strA, strBStr_N);
+                let stepD1 = joinTerms(strB, strV2_D);
+                let stepN2 = joinTerms(strC, strV2_N);
+                let stepD2 = joinTerms(strD, strBStr_D);
 
                 correctStr = formatFracAll(a*c, b*d, v, 0, v2, q2-q1, "", 0);
 
                 steps.push({text: questionMathStr, hide: false});
-                if (isDiv) steps.push({text: `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${n2Raw}}{${d2Raw}}`, hide: false});
+                if (isDiv) steps.push({text: `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${multN2Str}}{${multD2Str}}`, hide: false});
                 steps.push({text: `\\frac{${factoredN1}}{${factoredD1}} \\times \\frac{${factoredN2}}{${factoredD2}}`, hide: false});
                 steps.push({text: `\\frac{${stepN1}}{${stepD1}} \\times \\frac{${stepN2}}{${stepD2}}`, hide: false});
                 steps.push({text: correctStr, hide: false});
@@ -273,49 +259,46 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
 
             } else { // 負號陷阱：(x-y) / (y-x) = -1
                 let n1Str = `${v} - ${k}`;
-                let d1Str = combineTerm(b.toString(), formatVar(v2, q1));
-                let n2Raw = combineTerm(c.toString(), formatVar(v2, q2));
-                let d2Raw = `${k} - ${v}`; 
+                let d1Str = joinTerms(b.toString(), formatVar(v2, q1));
+                let multN2Str = joinTerms(c.toString(), formatVar(v2, q2));
+                let multD2Str = `${k} - ${v}`; 
                 
-                let n2Str = isDiv ? d2Raw : n2Raw;
-                let d2Str = isDiv ? n2Raw : d2Raw;
+                let n2Str = isDiv ? multD2Str : multN2Str;
+                let d2Str = isDiv ? multN2Str : multD2Str;
                 questionMathStr = `\\frac{${n1Str}}{${d1Str}} ${opStr} \\frac{${n2Str}}{${d2Str}}`;
 
-                bStr = `(${v} - ${k})`;
+                let bStr = `(${v} - ${k})`;
                 
-                let origB = b, origC = c;
+                let factoredN1 = bStr;
+                let factoredD1 = d1Str;
+                let factoredN2 = multN2Str;
+                let factoredD2 = `-(${v} - ${k})`;
+
                 let b_val = b, c_val = c;
                 let g = gcd(b_val, c_val); b_val /= g; c_val /= g;
 
-                let strC = cancelNode(origC.toString(), c_val.toString(), 'top');
-                let strB = cancelNode(origB.toString(), b_val.toString(), 'bottom');
+                let strC = cancelTermNode(c.toString(), c_val.toString(), 'top', colors[0]);
+                let strB = cancelTermNode(b.toString(), b_val.toString(), 'bottom', colors[0]);
 
-                let origQ1 = q1, origQ2 = q2;
                 let newQ1 = q1, newQ2 = q2;
                 if (q2 > q1) { newQ2 = q2 - q1; newQ1 = 0; }
                 else if (q2 < q1) { newQ2 = 0; newQ1 = q1 - q2; }
                 else { newQ2 = 0; newQ1 = 0; }
+                let strV2_N = cancelTermNode(formatVar(v2, q2), formatVar(v2, newQ2), 'top', colors[1]);
+                let strV2_D = cancelTermNode(formatVar(v2, q1), formatVar(v2, newQ1), 'bottom', colors[1]);
 
-                let strV2_N2 = cancelNode(formatVar(v2, origQ2), formatVar(v2, newQ2), 'top');
-                let strV2_D1 = cancelNode(formatVar(v2, origQ1), formatVar(v2, newQ1), 'bottom');
+                let strBStr_N = cancelTermNode(bStr, "1", 'top', colors[2]);
+                let strBStr_D = cancelTermNode(`-${bStr}`, "-1", 'bottom', colors[2]);
 
-                let strBStr_N1 = cancelNode(bStr, "1", 'top');
-                let strBStr_D2 = cancelNode(bStr, "1", 'bottom');
-
-                let stepN1 = strBStr_N1;
-                let stepD1 = combineTerm(strB, strV2_D1);
-                let stepN2 = combineTerm(strC, strV2_N2);
-                let stepD2 = `- ${strBStr_D2}`;
-
-                let factoredN1 = bStr;
-                let factoredD1 = d1Str;
-                let factoredN2 = n2Raw;
-                let factoredD2 = `-${bStr}`;
+                let stepN1 = strBStr_N;
+                let stepD1 = joinTerms(strB, strV2_D);
+                let stepN2 = joinTerms(strC, strV2_N);
+                let stepD2 = strBStr_D;
 
                 correctStr = formatFracAll(-c, b, v, 0, v2, q2-q1, "", 0);
 
                 steps.push({text: questionMathStr, hide: false});
-                if (isDiv) steps.push({text: `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${n2Raw}}{${d2Raw}}`, hide: false});
+                if (isDiv) steps.push({text: `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${multN2Str}}{${multD2Str}}`, hide: false});
                 steps.push({text: `\\frac{${factoredN1}}{${factoredD1}} \\times \\frac{${factoredN2}}{${factoredD2}}`, hide: false});
                 steps.push({text: `\\frac{${stepN1}}{${stepD1}} \\times \\frac{${stepN2}}{${stepD2}}`, hide: false});
                 steps.push({text: correctStr, hide: false});
@@ -355,14 +338,15 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
 
             if (type === 0) { // 平方差
                 let k = getRandomInt(2, 6);
-                let n1Str = `${v}^2 - ${k*k}`;
-                let d1Str = combineTerm(b.toString(), formatVar(v2, q1));
-                
                 let sign = Math.random() > 0.5 ? 1 : -1;
-                let d2Raw = `${v} ${sign > 0 ? '+' : '-'} ${k}`;
-                let n2Raw = combineTerm(c.toString(), formatVar(v2, q2));
-                let n2Str = isDiv ? d2Raw : n2Raw;
-                let d2Str = isDiv ? n2Raw : d2Raw;
+                
+                let n1Str = `${v}^2 - ${k*k}`;
+                let d1Str = joinTerms(b.toString(), formatVar(v2, q1));
+                let multN2Str = joinTerms(c.toString(), formatVar(v2, q2));
+                let multD2Str = `${v} ${sign > 0 ? '+' : '-'} ${k}`;
+                
+                let n2Str = isDiv ? multD2Str : multN2Str;
+                let d2Str = isDiv ? multN2Str : multD2Str;
 
                 questionMathStr = `\\frac{${n1Str}}{${d1Str}} ${opStr} \\frac{${n2Str}}{${d2Str}}`;
 
@@ -370,39 +354,36 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
                 let keepStr = `(${v} ${keptSign} ${k})`;
                 let cancelStr = `(${v} ${sign > 0 ? '+' : '-'} ${k})`;
 
-                let origB = b, origC = c;
+                let factoredN1 = sign > 0 ? `${cancelStr}${keepStr}` : `${keepStr}${cancelStr}`;
+                let factoredD1 = d1Str;
+                let factoredN2 = multN2Str;
+                let factoredD2 = cancelStr;
+
                 let b_val = b, c_val = c;
                 let g = gcd(b_val, c_val); b_val /= g; c_val /= g;
 
-                let strC = cancelNode(origC.toString(), c_val.toString(), 'top');
-                let strB = cancelNode(origB.toString(), b_val.toString(), 'bottom');
+                let strC = cancelTermNode(c.toString(), c_val.toString(), 'top', colors[0]);
+                let strB = cancelTermNode(b.toString(), b_val.toString(), 'bottom', colors[0]);
 
-                let origQ1 = q1, origQ2 = q2;
                 let newQ1 = q1, newQ2 = q2;
                 if (q2 > q1) { newQ2 = q2 - q1; newQ1 = 0; }
                 else if (q2 < q1) { newQ2 = 0; newQ1 = q1 - q2; }
                 else { newQ2 = 0; newQ1 = 0; }
+                let strV2_N = cancelTermNode(formatVar(v2, q2), formatVar(v2, newQ2), 'top', colors[1]);
+                let strV2_D = cancelTermNode(formatVar(v2, q1), formatVar(v2, newQ1), 'bottom', colors[1]);
 
-                let strV2_N2 = cancelNode(formatVar(v2, origQ2), formatVar(v2, newQ2), 'top');
-                let strV2_D1 = cancelNode(formatVar(v2, origQ1), formatVar(v2, newQ1), 'bottom');
+                let strCancel_N = cancelTermNode(cancelStr, "1", 'top', colors[2]);
+                let strCancel_D = cancelTermNode(cancelStr, "1", 'bottom', colors[2]);
 
-                let strBStr_N1_cancel = cancelNode(cancelStr, "1", 'top');
-                let strBStr_D2_cancel = cancelNode(cancelStr, "1", 'bottom');
-
-                let stepN1 = sign > 0 ? `${strBStr_N1_cancel}${keepStr}` : `${keepStr}${strBStr_N1_cancel}`; 
-                let stepD1 = combineTerm(strB, strV2_D1);
-                let stepN2 = combineTerm(strC, strV2_N2);
-                let stepD2 = strBStr_D2_cancel;
-
-                let factoredN1 = sign > 0 ? `${cancelStr}${keepStr}` : `${keepStr}${cancelStr}`;
-                let factoredD1 = d1Str;
-                let factoredN2 = n2Raw;
-                let factoredD2 = cancelStr;
+                let stepN1 = sign > 0 ? joinTerms(strCancel_N, keepStr) : joinTerms(keepStr, strCancel_N); 
+                let stepD1 = joinTerms(strB, strV2_D);
+                let stepN2 = joinTerms(strC, strV2_N);
+                let stepD2 = strCancel_D;
 
                 correctStr = formatFracAll(c, b, v, 0, v2, q2-q1, keepStr, 1);
 
                 steps.push({text: questionMathStr, hide: false});
-                if (isDiv) steps.push({text: `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${n2Raw}}{${d2Raw}}`, hide: false});
+                if (isDiv) steps.push({text: `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${multN2Str}}{${multD2Str}}`, hide: false});
                 steps.push({text: `\\frac{${factoredN1}}{${factoredD1}} \\times \\frac{${factoredN2}}{${factoredD2}}`, hide: false});
                 steps.push({text: `\\frac{${stepN1}}{${stepD1}} \\times \\frac{${stepN2}}{${stepD2}}`, hide: false});
                 steps.push({text: correctStr, hide: false});
@@ -424,51 +405,47 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
                 let constTerm = k * k;
 
                 let n1Str = `${v}^2 ${midCoef > 0 ? '+' : '-'} ${Math.abs(midCoef)}${v} + ${constTerm}`;
-                let d1Str = combineTerm(b.toString(), formatVar(v2, q1));
-                
-                let d2Raw = `${v} ${sign > 0 ? '+' : '-'} ${k}`;
-                let n2Raw = combineTerm(c.toString(), formatVar(v2, q2));
+                let d1Str = joinTerms(b.toString(), formatVar(v2, q1));
+                let multN2Str = joinTerms(c.toString(), formatVar(v2, q2));
+                let multD2Str = `${v} ${sign > 0 ? '+' : '-'} ${k}`;
 
-                let n2Str = isDiv ? d2Raw : n2Raw;
-                let d2Str = isDiv ? n2Raw : d2Raw;
+                let n2Str = isDiv ? multD2Str : multN2Str;
+                let d2Str = isDiv ? multN2Str : multD2Str;
 
                 questionMathStr = `\\frac{${n1Str}}{${d1Str}} ${opStr} \\frac{${n2Str}}{${d2Str}}`;
 
                 let bStr = `(${v} ${sign > 0 ? '+' : '-'} ${k})`;
 
-                let origB = b, origC = c;
+                let factoredN1 = `${bStr}^2`;
+                let factoredD1 = d1Str;
+                let factoredN2 = multN2Str;
+                let factoredD2 = bStr;
+
                 let b_val = b, c_val = c;
                 let g = gcd(b_val, c_val); b_val /= g; c_val /= g;
 
-                let strC = cancelNode(origC.toString(), c_val.toString(), 'top');
-                let strB = cancelNode(origB.toString(), b_val.toString(), 'bottom');
+                let strC = cancelTermNode(c.toString(), c_val.toString(), 'top', colors[0]);
+                let strB = cancelTermNode(b.toString(), b_val.toString(), 'bottom', colors[0]);
 
-                let origQ1 = q1, origQ2 = q2;
                 let newQ1 = q1, newQ2 = q2;
                 if (q2 > q1) { newQ2 = q2 - q1; newQ1 = 0; }
                 else if (q2 < q1) { newQ2 = 0; newQ1 = q1 - q2; }
                 else { newQ2 = 0; newQ1 = 0; }
+                let strV2_N = cancelTermNode(formatVar(v2, q2), formatVar(v2, newQ2), 'top', colors[1]);
+                let strV2_D = cancelTermNode(formatVar(v2, q1), formatVar(v2, newQ1), 'bottom', colors[1]);
 
-                let strV2_N2 = cancelNode(formatVar(v2, origQ2), formatVar(v2, newQ2), 'top');
-                let strV2_D1 = cancelNode(formatVar(v2, origQ1), formatVar(v2, newQ1), 'bottom');
+                let strBStr_N = cancelSquareNode(bStr, colors[2]); 
+                let strBStr_D = cancelTermNode(bStr, "1", 'bottom', colors[2]); 
 
-                let strBStr_N1 = cancelPwrNode(bStr, "2", ""); 
-                let strBStr_D2 = cancelNode(bStr, "1", 'bottom'); 
-
-                let stepN1 = strBStr_N1;
-                let stepD1 = combineTerm(strB, strV2_D1);
-                let stepN2 = combineTerm(strC, strV2_N2);
-                let stepD2 = strBStr_D2;
-
-                let factoredN1 = `${bStr}^2`;
-                let factoredD1 = d1Str;
-                let factoredN2 = n2Raw;
-                let factoredD2 = bStr;
+                let stepN1 = strBStr_N;
+                let stepD1 = joinTerms(strB, strV2_D);
+                let stepN2 = joinTerms(strC, strV2_N);
+                let stepD2 = strBStr_D;
 
                 correctStr = formatFracAll(c, b, v, 0, v2, q2-q1, bStr, 1);
 
                 steps.push({text: questionMathStr, hide: false});
-                if (isDiv) steps.push({text: `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${n2Raw}}{${d2Raw}}`, hide: false});
+                if (isDiv) steps.push({text: `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${multN2Str}}{${multD2Str}}`, hide: false});
                 steps.push({text: `\\frac{${factoredN1}}{${factoredD1}} \\times \\frac{${factoredN2}}{${factoredD2}}`, hide: false});
                 steps.push({text: `\\frac{${stepN1}}{${stepD1}} \\times \\frac{${stepN2}}{${stepD2}}`, hide: false});
                 steps.push({text: correctStr, hide: false});
@@ -523,51 +500,48 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
             if (constTerm > 0) n1Str += ` + ${constTerm}`;
             else if (constTerm < 0) n1Str += ` - ${Math.abs(constTerm)}`;
 
-            let d1Str = combineTerm(b.toString(), formatVar(v2, q1));
-            let d2Raw = `${v} ${m > 0 ? '+' : '-'} ${Math.abs(m)}`; 
-            let n2Raw = combineTerm(c.toString(), formatVar(v2, q2));
+            let d1Str = joinTerms(b.toString(), formatVar(v2, q1));
+            let multN2Str = joinTerms(c.toString(), formatVar(v2, q2));
+            let multD2Str = `${v} ${m > 0 ? '+' : '-'} ${Math.abs(m)}`; 
 
-            let n2Str = isDiv ? d2Raw : n2Raw;
-            let d2Str = isDiv ? n2Raw : d2Raw;
+            let n2Str = isDiv ? multD2Str : multN2Str;
+            let d2Str = isDiv ? multN2Str : multD2Str;
 
             questionMathStr = `\\frac{${n1Str}}{${d1Str}} ${opStr} \\frac{${n2Str}}{${d2Str}}`;
 
             let cancelStr = `(${v} ${m > 0 ? '+' : '-'} ${Math.abs(m)})`;
             let keepStr = `(${v} ${n > 0 ? '+' : '-'} ${Math.abs(n)})`;
 
-            let origB = b, origC = c;
+            let factoredN1 = `${cancelStr}${keepStr}`;
+            let factoredD1 = d1Str;
+            let factoredN2 = multN2Str;
+            let factoredD2 = cancelStr;
+
             let b_val = b, c_val = c;
             let g = gcd(b_val, c_val); b_val /= g; c_val /= g;
 
-            let strC = cancelNode(origC.toString(), c_val.toString(), 'top');
-            let strB = cancelNode(origB.toString(), b_val.toString(), 'bottom');
+            let strC = cancelTermNode(c.toString(), c_val.toString(), 'top', colors[0]);
+            let strB = cancelTermNode(b.toString(), b_val.toString(), 'bottom', colors[0]);
 
-            let origQ1 = q1, origQ2 = q2;
             let newQ1 = q1, newQ2 = q2;
             if (q2 > q1) { newQ2 = q2 - q1; newQ1 = 0; }
             else if (q2 < q1) { newQ2 = 0; newQ1 = q1 - q2; }
             else { newQ2 = 0; newQ1 = 0; }
+            let strV2_N = cancelTermNode(formatVar(v2, q2), formatVar(v2, newQ2), 'top', colors[1]);
+            let strV2_D = cancelTermNode(formatVar(v2, q1), formatVar(v2, newQ1), 'bottom', colors[1]);
 
-            let strV2_N2 = cancelNode(formatVar(v2, origQ2), formatVar(v2, newQ2), 'top');
-            let strV2_D1 = cancelNode(formatVar(v2, origQ1), formatVar(v2, newQ1), 'bottom');
+            let strCancel_N = cancelTermNode(cancelStr, "1", 'top', colors[2]);
+            let strCancel_D = cancelTermNode(cancelStr, "1", 'bottom', colors[2]);
 
-            let strCancel_N1 = cancelNode(cancelStr, "1", 'top');
-            let strCancel_D2 = cancelNode(cancelStr, "1", 'bottom');
-
-            let stepN1 = `${strCancel_N1}${keepStr}`; 
-            let stepD1 = combineTerm(strB, strV2_D1);
-            let stepN2 = combineTerm(strC, strV2_N2);
-            let stepD2 = strCancel_D2;
-
-            let factoredN1 = `${cancelStr}${keepStr}`;
-            let factoredD1 = d1Str;
-            let factoredN2 = n2Raw;
-            let factoredD2 = cancelStr;
+            let stepN1 = joinTerms(strCancel_N, keepStr); 
+            let stepD1 = joinTerms(strB, strV2_D);
+            let stepN2 = joinTerms(strC, strV2_N);
+            let stepD2 = strCancel_D;
 
             correctStr = formatFracAll(c, b, v, 0, v2, q2-q1, keepStr, 1);
 
             steps.push({text: questionMathStr, hide: false});
-            if (isDiv) steps.push({text: `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${n2Raw}}{${d2Raw}}`, hide: false});
+            if (isDiv) steps.push({text: `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${multN2Str}}{${multD2Str}}`, hide: false});
             steps.push({text: `\\frac{${factoredN1}}{${factoredD1}} \\times \\frac{${factoredN2}}{${factoredD2}}`, hide: false});
             steps.push({text: `\\frac{${stepN1}}{${stepD1}} \\times \\frac{${stepN2}}{${stepD2}}`, hide: false});
             steps.push({text: correctStr, hide: false});
