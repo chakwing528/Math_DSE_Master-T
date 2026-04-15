@@ -9,36 +9,57 @@ const msgFracMulDiv3 = `<div class="text-red-600 font-bold text-lg mb-1">❗ 忘
 const msgFracMulDiv4 = `<div class="text-red-600 font-bold text-lg mb-1">❗ 因式分解未完全或錯誤</div>`;
 
 // ==========================================
-// 🌟 仿教師紅筆批改系統 (視覺化跨項約簡)
+// 🌟 仿教師紅筆批改系統 (強大視覺化跨項約簡)
+// 完全重現老師手寫批改：加粗紅線劃掉、標記剩餘數字與次方
 // ==========================================
-const colors = ['#ef4444', '#3b82f6', '#16a34a', '#f97316', '#a855f7']; // 紅, 藍, 綠, 橘, 紫
 
-// 畫掉整個項目並在上方或下方寫上新數值
-const cancelTermNode = (oldTerm, newTerm, pos, color = '#ef4444') => {
-    if (oldTerm === newTerm) return oldTerm === "1" ? "" : (oldTerm === "-1" ? "-" : oldTerm);
-    if (oldTerm === "1" || oldTerm === "") return newTerm === "1" ? "" : (newTerm === "-1" ? "-" : newTerm);
-    if (newTerm === "1" || newTerm === "") return `\\color{${color}}{\\cancel{\\color{black}{${oldTerm}}}}`;
-    if (newTerm === "-1") return `\\underset{\\color{${color}}{-1}}{\\color{${color}}{\\cancel{\\color{black}{${oldTerm}}}}}`; 
-    return pos === 'top'
-        ? `\\overset{\\color{${color}}{${newTerm}}}{\\color{${color}}{\\cancel{\\color{black}{${oldTerm}}}}}`
-        : `\\underset{\\color{${color}}{${newTerm}}}{\\color{${color}}{\\cancel{\\color{black}{${oldTerm}}}}}`;
-};
+// 1. 處理數字的約簡畫線
+function getNumCancel(oldN, newN, pos) {
+    if (oldN === newN) return oldN === 1 ? "" : oldN.toString();
+    if (newN === 1) return `\\color{red}{\\cancel{\\color{black}{${oldN}}}}`;
+    if (newN === -1) {
+        return pos === 'top' 
+            ? `\\overset{\\color{red}{-1}}{\\color{red}{\\cancel{\\color{black}{${oldN}}}}}` 
+            : `\\underset{\\color{red}{-1}}{\\color{red}{\\cancel{\\color{black}{${oldN}}}}}`;
+    }
+    return pos === 'top' 
+        ? `\\overset{\\color{red}{${newN}}}{\\color{red}{\\cancel{\\color{black}{${oldN}}}}}`
+        : `\\underset{\\color{red}{${newN}}}{\\color{red}{\\cancel{\\color{black}{${oldN}}}}}`;
+}
 
-// 專門用於畫掉次方數 (例如完美還原老師劃掉 (x+2)^2 的二次方)
-const cancelSquareNode = (base, color = '#ef4444') => {
-    return `${base}^{\\color{${color}}{\\cancel{\\color{black}{2}}}}`;
-};
+// 2. 處理變數與次方的約簡畫線
+function getVarCancel(v, oldP, newP, pos) {
+    if (oldP === newP) return oldP === 0 ? "" : (oldP === 1 ? v : `${v}^{${oldP}}`);
+    if (newP === 0) {
+        let oldStr = oldP === 1 ? v : `${v}^{${oldP}}`;
+        return `\\color{red}{\\cancel{\\color{black}{${oldStr}}}}`;
+    }
+    if (newP === 1) {
+        return `${v}^{\\color{red}{\\cancel{\\color{black}{${oldP}}}}}`;
+    }
+    let posCmd = pos === 'top' ? `\\overset{\\color{red}{${newP}}}` : `\\underset{\\color{red}{${newP}}}`;
+    return `${v}^{${posCmd}{\\color{red}{\\cancel{\\color{black}{${oldP}}}}}}`;
+}
 
-// 連接各個被畫掉的項 (隱藏多餘的 1)
-const joinTerms = (...strs) => {
+// 3. 處理括號因式的約簡畫線
+function getPolyCancel(polyStr, oldP, newP, pos) {
+    if (oldP === newP) return oldP === 0 ? "" : (oldP === 1 ? polyStr : `${polyStr}^{${oldP}}`);
+    if (newP === 0) {
+        let oldStr = oldP === 1 ? polyStr : `${polyStr}^{${oldP}}`;
+        return `\\color{red}{\\cancel{\\color{black}{${oldStr}}}}`;
+    }
+    if (newP === 1) {
+        return `${polyStr}^{\\color{red}{\\cancel{\\color{black}{${oldP}}}}}`;
+    }
+    let posCmd = pos === 'top' ? `\\overset{\\color{red}{${newP}}}` : `\\underset{\\color{red}{${newP}}}`;
+    return `${polyStr}^{${posCmd}{\\color{red}{\\cancel{\\color{black}{${oldP}}}}}}`;
+}
+
+// 4. 合併畫掉的項 (隱藏多餘的 1)
+function joinNum(...strs) {
     let res = strs.filter(s => s !== "").join("");
-    if (res === "" || res === "-") return res + "1";
-    return res;
-};
-
-// 變數格式化 (自動處理 1 次方與 0 次方)
-const formatVar = (v, p) => p === 0 ? "1" : (p === 1 ? v : `${v}^{${p}}`);
-const getCStr = (c) => c === 1 ? "" : (c === -1 ? "-" : c.toString());
+    return res === "" ? "1" : res;
+}
 
 // ==========================================
 // 專用強大分數排版工具 (用於最終答案顯示)
@@ -72,6 +93,8 @@ function formatFracAll(numC, denC, v1, p1, v2, p2, bStr, pb) {
     if (denStr === "" || denStr === "1") return (isNeg ? "-" : "") + numStr;
     return (isNeg ? "-" : "") + `\\frac{${numStr}}{${denStr}}`;
 }
+
+function formatVar(v, p) { return p === 0 ? "1" : (p === 1 ? v : `${v}^{${p}}`); }
 
 // ==========================================
 // 題目生成器：代數分式的乘除法
@@ -107,52 +130,54 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
             let p1 = getRandomInt(1, 5), q1 = getRandomInt(1, 5);
             let p2 = getRandomInt(1, 5), q2 = getRandomInt(1, 5);
 
-            let n1Str = joinTerms(A.toString(), formatVar(v1, p1));
-            let d1Str = joinTerms(B.toString(), formatVar(v2, q1));
-            let multN2Str = joinTerms(C.toString(), formatVar(v2, q2));
-            let multD2Str = joinTerms(D.toString(), formatVar(v1, p2));
+            let n1Str = joinNum(A === 1 ? "" : A.toString(), formatVar(v1, p1));
+            let d1Str = joinNum(B === 1 ? "" : B.toString(), formatVar(v2, q1));
+            let multN2Str = joinNum(C === 1 ? "" : C.toString(), formatVar(v2, q2));
+            let multD2Str = joinNum(D === 1 ? "" : D.toString(), formatVar(v1, p2));
             
             let n2Str = isDiv ? multD2Str : multN2Str;
             let d2Str = isDiv ? multN2Str : multD2Str;
 
             questionMathStr = `\\frac{${n1Str}}{${d1Str}} ${opStr} \\frac{${n2Str}}{${d2Str}}`;
             
-            // 約簡計算邏輯 (跨分數約簡)
+            // 約簡計算邏輯 (跨分數獨立約簡)
             let a_val = A, b_val = B, c_val = C, d_val = D;
             let g1 = gcd(a_val, b_val); a_val /= g1; b_val /= g1;
             let g2 = gcd(c_val, d_val); c_val /= g2; d_val /= g2;
             let g3 = gcd(a_val, d_val); a_val /= g3; d_val /= g3;
             let g4 = gcd(c_val, b_val); c_val /= g4; b_val /= g4;
             
-            let strA = cancelTermNode(A.toString(), a_val.toString(), 'top', colors[0]);
-            let strB = cancelTermNode(B.toString(), b_val.toString(), 'bottom', colors[0]);
-            let strC = cancelTermNode(C.toString(), c_val.toString(), 'top', colors[0]);
-            let strD = cancelTermNode(D.toString(), d_val.toString(), 'bottom', colors[0]);
+            let strA = getNumCancel(A, a_val, 'top');
+            let strB = getNumCancel(B, b_val, 'bottom');
+            let strC = getNumCancel(C, c_val, 'top');
+            let strD = getNumCancel(D, d_val, 'bottom');
 
             let newP1 = p1, newP2 = p2;
             if (p1 > p2) { newP1 = p1 - p2; newP2 = 0; }
             else if (p1 < p2) { newP1 = 0; newP2 = p2 - p1; }
             else { newP1 = 0; newP2 = 0; }
-            let strV1_N = cancelTermNode(formatVar(v1, p1), formatVar(v1, newP1), 'top', colors[1]);
-            let strV1_D = cancelTermNode(formatVar(v1, p2), formatVar(v1, newP2), 'bottom', colors[1]);
+            let strV1_N = getVarCancel(v1, p1, newP1, 'top');
+            let strV1_D = getVarCancel(v1, p2, newP2, 'bottom');
 
             let newQ1 = q1, newQ2 = q2;
             if (q2 > q1) { newQ2 = q2 - q1; newQ1 = 0; }
             else if (q2 < q1) { newQ2 = 0; newQ1 = q1 - q2; }
             else { newQ2 = 0; newQ1 = 0; }
-            let strV2_N = cancelTermNode(formatVar(v2, q2), formatVar(v2, newQ2), 'top', colors[2]);
-            let strV2_D = cancelTermNode(formatVar(v2, q1), formatVar(v2, newQ1), 'bottom', colors[2]);
+            let strV2_N = getVarCancel(v2, q2, newQ2, 'top');
+            let strV2_D = getVarCancel(v2, q1, newQ1, 'bottom');
 
-            // 組合約簡後的跨項分式
-            let stepN1 = joinTerms(strA, strV1_N);
-            let stepD1 = joinTerms(strB, strV2_D);
-            let stepN2 = joinTerms(strC, strV2_N);
-            let stepD2 = joinTerms(strD, strV1_D);
+            // 組合約簡後的分式 (保留兩個獨立分數)
+            let stepN1 = joinNum(strA, strV1_N);
+            let stepD1 = joinNum(strB, strV2_D);
+            let stepN2 = joinNum(strC, strV2_N);
+            let stepD2 = joinNum(strD, strV1_D);
             
             let correctStr = formatFracAll(A*C, B*D, v1, p1-p2, v2, q2-q1, "", 0);
 
             let steps = [{text: questionMathStr, hide: false}];
             if (isDiv) steps.push({text: `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${multN2Str}}{${multD2Str}}`, hide: false});
+            
+            // 🌟 核心：先約簡，不相乘！
             steps.push({text: `\\frac{${stepN1}}{${stepD1}} \\times \\frac{${stepN2}}{${stepD2}}`, hide: false});
             steps.push({text: correctStr, hide: false});
 
@@ -200,8 +225,8 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
                 let bStr = `(${v} ${sign > 0 ? '+' : '-'} ${k})`;
                 
                 let n1Str = `${a}${v} ${sign > 0 ? '+' : '-'} ${a*k}`; 
-                let d1Str = joinTerms(b.toString(), formatVar(v2, q1));
-                let multN2Str = joinTerms(c.toString(), formatVar(v2, q2));
+                let d1Str = joinNum(b.toString(), formatVar(v2, q1));
+                let multN2Str = joinNum(c.toString(), formatVar(v2, q2));
                 let multD2Str = `${d}${v} ${sign > 0 ? '+' : '-'} ${d*k}`; 
                 
                 let n2Str = isDiv ? multD2Str : multN2Str;
@@ -219,31 +244,33 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
                 let g3 = gcd(a_val, d_val); a_val /= g3; d_val /= g3;
                 let g4 = gcd(c_val, b_val); c_val /= g4; b_val /= g4;
 
-                let strA = cancelTermNode(a.toString(), a_val.toString(), 'top', colors[0]);
-                let strB = cancelTermNode(b.toString(), b_val.toString(), 'bottom', colors[0]);
-                let strC = cancelTermNode(c.toString(), c_val.toString(), 'top', colors[0]);
-                let strD = cancelTermNode(d.toString(), d_val.toString(), 'bottom', colors[0]);
+                let strA = getNumCancel(a, a_val, 'top');
+                let strB = getNumCancel(b, b_val, 'bottom');
+                let strC = getNumCancel(c, c_val, 'top');
+                let strD = getNumCancel(d, d_val, 'bottom');
 
                 let newQ1 = q1, newQ2 = q2;
                 if (q2 > q1) { newQ2 = q2 - q1; newQ1 = 0; }
                 else if (q2 < q1) { newQ2 = 0; newQ1 = q1 - q2; }
                 else { newQ2 = 0; newQ1 = 0; }
-                let strV2_N = cancelTermNode(formatVar(v2, q2), formatVar(v2, newQ2), 'top', colors[1]);
-                let strV2_D = cancelTermNode(formatVar(v2, q1), formatVar(v2, newQ1), 'bottom', colors[1]);
+                let strV2_N = getVarCancel(v2, q2, newQ2, 'top');
+                let strV2_D = getVarCancel(v2, q1, newQ1, 'bottom');
 
-                let strBStr_N = cancelTermNode(bStr, "1", 'top', colors[2]);
-                let strBStr_D = cancelTermNode(bStr, "1", 'bottom', colors[2]);
+                let strBStr_N = getPolyCancel(bStr, 1, 0, 'top');
+                let strBStr_D = getPolyCancel(bStr, 1, 0, 'bottom');
 
-                let stepN1 = joinTerms(strA, strBStr_N);
-                let stepD1 = joinTerms(strB, strV2_D);
-                let stepN2 = joinTerms(strC, strV2_N);
-                let stepD2 = joinTerms(strD, strBStr_D);
+                let stepN1 = joinNum(strA, strBStr_N);
+                let stepD1 = joinNum(strB, strV2_D);
+                let stepN2 = joinNum(strC, strV2_N);
+                let stepD2 = joinNum(strD, strBStr_D);
 
                 correctStr = formatFracAll(a*c, b*d, v, 0, v2, q2-q1, "", 0);
 
                 steps.push({text: questionMathStr, hide: false});
                 if (isDiv) steps.push({text: `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${multN2Str}}{${multD2Str}}`, hide: false});
                 steps.push({text: `\\frac{${factoredN1}}{${factoredD1}} \\times \\frac{${factoredN2}}{${factoredD2}}`, hide: false});
+                
+                // 🌟 核心：先約簡，不相乘！
                 steps.push({text: `\\frac{${stepN1}}{${stepD1}} \\times \\frac{${stepN2}}{${stepD2}}`, hide: false});
                 steps.push({text: correctStr, hide: false});
 
@@ -259,8 +286,8 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
 
             } else { // 負號陷阱：(x-y) / (y-x) = -1
                 let n1Str = `${v} - ${k}`;
-                let d1Str = joinTerms(b.toString(), formatVar(v2, q1));
-                let multN2Str = joinTerms(c.toString(), formatVar(v2, q2));
+                let d1Str = joinNum(b.toString(), formatVar(v2, q1));
+                let multN2Str = joinNum(c.toString(), formatVar(v2, q2));
                 let multD2Str = `${k} - ${v}`; 
                 
                 let n2Str = isDiv ? multD2Str : multN2Str;
@@ -277,23 +304,23 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
                 let b_val = b, c_val = c;
                 let g = gcd(b_val, c_val); b_val /= g; c_val /= g;
 
-                let strC = cancelTermNode(c.toString(), c_val.toString(), 'top', colors[0]);
-                let strB = cancelTermNode(b.toString(), b_val.toString(), 'bottom', colors[0]);
+                let strC = getNumCancel(c, c_val, 'top');
+                let strB = getNumCancel(b, b_val, 'bottom');
 
                 let newQ1 = q1, newQ2 = q2;
                 if (q2 > q1) { newQ2 = q2 - q1; newQ1 = 0; }
                 else if (q2 < q1) { newQ2 = 0; newQ1 = q1 - q2; }
                 else { newQ2 = 0; newQ1 = 0; }
-                let strV2_N = cancelTermNode(formatVar(v2, q2), formatVar(v2, newQ2), 'top', colors[1]);
-                let strV2_D = cancelTermNode(formatVar(v2, q1), formatVar(v2, newQ1), 'bottom', colors[1]);
+                let strV2_N = getVarCancel(v2, q2, newQ2, 'top');
+                let strV2_D = getVarCancel(v2, q1, newQ1, 'bottom');
 
-                let strBStr_N = cancelTermNode(bStr, "1", 'top', colors[2]);
-                let strBStr_D = cancelTermNode(`-${bStr}`, "-1", 'bottom', colors[2]);
+                let strBStr_N = getPolyCancel(bStr, 1, 0, 'top');
+                let strBStr_D = getPolyCancel(bStr, 1, 0, 'bottom');
 
                 let stepN1 = strBStr_N;
-                let stepD1 = joinTerms(strB, strV2_D);
-                let stepN2 = joinTerms(strC, strV2_N);
-                let stepD2 = strBStr_D;
+                let stepD1 = joinNum(strB, strV2_D);
+                let stepN2 = joinNum(strC, strV2_N);
+                let stepD2 = `-${strBStr_D}`; // 保留負號在括號外
 
                 correctStr = formatFracAll(-c, b, v, 0, v2, q2-q1, "", 0);
 
@@ -341,8 +368,8 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
                 let sign = Math.random() > 0.5 ? 1 : -1;
                 
                 let n1Str = `${v}^2 - ${k*k}`;
-                let d1Str = joinTerms(b.toString(), formatVar(v2, q1));
-                let multN2Str = joinTerms(c.toString(), formatVar(v2, q2));
+                let d1Str = joinNum(b.toString(), formatVar(v2, q1));
+                let multN2Str = joinNum(c.toString(), formatVar(v2, q2));
                 let multD2Str = `${v} ${sign > 0 ? '+' : '-'} ${k}`;
                 
                 let n2Str = isDiv ? multD2Str : multN2Str;
@@ -362,29 +389,35 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
                 let b_val = b, c_val = c;
                 let g = gcd(b_val, c_val); b_val /= g; c_val /= g;
 
-                let strC = cancelTermNode(c.toString(), c_val.toString(), 'top', colors[0]);
-                let strB = cancelTermNode(b.toString(), b_val.toString(), 'bottom', colors[0]);
+                let strC = getNumCancel(c, c_val, 'top');
+                let strB = getNumCancel(b, b_val, 'bottom');
 
                 let newQ1 = q1, newQ2 = q2;
                 if (q2 > q1) { newQ2 = q2 - q1; newQ1 = 0; }
                 else if (q2 < q1) { newQ2 = 0; newQ1 = q1 - q2; }
                 else { newQ2 = 0; newQ1 = 0; }
-                let strV2_N = cancelTermNode(formatVar(v2, q2), formatVar(v2, newQ2), 'top', colors[1]);
-                let strV2_D = cancelTermNode(formatVar(v2, q1), formatVar(v2, newQ1), 'bottom', colors[1]);
+                let strV2_N = getVarCancel(v2, q2, newQ2, 'top');
+                let strV2_D = getVarCancel(v2, q1, newQ1, 'bottom');
 
-                let strCancel_N = cancelTermNode(cancelStr, "1", 'top', colors[2]);
-                let strCancel_D = cancelTermNode(cancelStr, "1", 'bottom', colors[2]);
+                let strCancel_N = getPolyCancel(cancelStr, 1, 0, 'top');
+                let strCancel_D = getPolyCancel(cancelStr, 1, 0, 'bottom');
 
-                let stepN1 = sign > 0 ? joinTerms(strCancel_N, keepStr) : joinTerms(keepStr, strCancel_N); 
-                let stepD1 = joinTerms(strB, strV2_D);
-                let stepN2 = joinTerms(strC, strV2_N);
+                let stepN1;
+                if (sign > 0) {
+                    stepN1 = joinNum(strCancel_N, keepStr); 
+                } else {
+                    stepN1 = joinNum(keepStr, strCancel_N); 
+                }
+                
+                let stepD1 = joinNum(strB, strV2_D);
+                let stepN2 = joinNum(strC, strV2_N);
                 let stepD2 = strCancel_D;
 
                 correctStr = formatFracAll(c, b, v, 0, v2, q2-q1, keepStr, 1);
 
                 steps.push({text: questionMathStr, hide: false});
                 if (isDiv) steps.push({text: `\\frac{${n1Str}}{${d1Str}} \\times \\frac{${multN2Str}}{${multD2Str}}`, hide: false});
-                steps.push({text: `\\frac{${factoredN1}}{${factoredD1}} \\times \\frac{${factoredN2}}{${factoredD2}}`, hide: false});
+                steps.push({text: `\\frac{(${v}-${k})(${v}+${k})}{${factoredD1}} \\times \\frac{${factoredN2}}{${factoredD2}}`, hide: false});
                 steps.push({text: `\\frac{${stepN1}}{${stepD1}} \\times \\frac{${stepN2}}{${stepD2}}`, hide: false});
                 steps.push({text: correctStr, hide: false});
 
@@ -405,8 +438,8 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
                 let constTerm = k * k;
 
                 let n1Str = `${v}^2 ${midCoef > 0 ? '+' : '-'} ${Math.abs(midCoef)}${v} + ${constTerm}`;
-                let d1Str = joinTerms(b.toString(), formatVar(v2, q1));
-                let multN2Str = joinTerms(c.toString(), formatVar(v2, q2));
+                let d1Str = joinNum(b.toString(), formatVar(v2, q1));
+                let multN2Str = joinNum(c.toString(), formatVar(v2, q2));
                 let multD2Str = `${v} ${sign > 0 ? '+' : '-'} ${k}`;
 
                 let n2Str = isDiv ? multD2Str : multN2Str;
@@ -424,22 +457,22 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
                 let b_val = b, c_val = c;
                 let g = gcd(b_val, c_val); b_val /= g; c_val /= g;
 
-                let strC = cancelTermNode(c.toString(), c_val.toString(), 'top', colors[0]);
-                let strB = cancelTermNode(b.toString(), b_val.toString(), 'bottom', colors[0]);
+                let strC = getNumCancel(c, c_val, 'top');
+                let strB = getNumCancel(b, b_val, 'bottom');
 
                 let newQ1 = q1, newQ2 = q2;
                 if (q2 > q1) { newQ2 = q2 - q1; newQ1 = 0; }
                 else if (q2 < q1) { newQ2 = 0; newQ1 = q1 - q2; }
                 else { newQ2 = 0; newQ1 = 0; }
-                let strV2_N = cancelTermNode(formatVar(v2, q2), formatVar(v2, newQ2), 'top', colors[1]);
-                let strV2_D = cancelTermNode(formatVar(v2, q1), formatVar(v2, newQ1), 'bottom', colors[1]);
+                let strV2_N = getVarCancel(v2, q2, newQ2, 'top');
+                let strV2_D = getVarCancel(v2, q1, newQ1, 'bottom');
 
-                let strBStr_N = cancelSquareNode(bStr, colors[2]); 
-                let strBStr_D = cancelTermNode(bStr, "1", 'bottom', colors[2]); 
+                let strBStr_N = getPolyCancel(bStr, 2, 1, 'top'); // 畫掉 2 次方
+                let strBStr_D = getPolyCancel(bStr, 1, 0, 'bottom'); // 畫掉整個底數
 
                 let stepN1 = strBStr_N;
-                let stepD1 = joinTerms(strB, strV2_D);
-                let stepN2 = joinTerms(strC, strV2_N);
+                let stepD1 = joinNum(strB, strV2_D);
+                let stepN2 = joinNum(strC, strV2_N);
                 let stepD2 = strBStr_D;
 
                 correctStr = formatFracAll(c, b, v, 0, v2, q2-q1, bStr, 1);
@@ -500,8 +533,8 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
             if (constTerm > 0) n1Str += ` + ${constTerm}`;
             else if (constTerm < 0) n1Str += ` - ${Math.abs(constTerm)}`;
 
-            let d1Str = joinTerms(b.toString(), formatVar(v2, q1));
-            let multN2Str = joinTerms(c.toString(), formatVar(v2, q2));
+            let d1Str = joinNum(b.toString(), formatVar(v2, q1));
+            let multN2Str = joinNum(c.toString(), formatVar(v2, q2));
             let multD2Str = `${v} ${m > 0 ? '+' : '-'} ${Math.abs(m)}`; 
 
             let n2Str = isDiv ? multD2Str : multN2Str;
@@ -520,22 +553,22 @@ function generateAlgFracMulDivQuestions(num, levelPref) {
             let b_val = b, c_val = c;
             let g = gcd(b_val, c_val); b_val /= g; c_val /= g;
 
-            let strC = cancelTermNode(c.toString(), c_val.toString(), 'top', colors[0]);
-            let strB = cancelTermNode(b.toString(), b_val.toString(), 'bottom', colors[0]);
+            let strC = getNumCancel(c, c_val, 'top');
+            let strB = getNumCancel(b, b_val, 'bottom');
 
             let newQ1 = q1, newQ2 = q2;
             if (q2 > q1) { newQ2 = q2 - q1; newQ1 = 0; }
             else if (q2 < q1) { newQ2 = 0; newQ1 = q1 - q2; }
             else { newQ2 = 0; newQ1 = 0; }
-            let strV2_N = cancelTermNode(formatVar(v2, q2), formatVar(v2, newQ2), 'top', colors[1]);
-            let strV2_D = cancelTermNode(formatVar(v2, q1), formatVar(v2, newQ1), 'bottom', colors[1]);
+            let strV2_N = getVarCancel(v2, q2, newQ2, 'top');
+            let strV2_D = getVarCancel(v2, q1, newQ1, 'bottom');
 
-            let strCancel_N = cancelTermNode(cancelStr, "1", 'top', colors[2]);
-            let strCancel_D = cancelTermNode(cancelStr, "1", 'bottom', colors[2]);
+            let strCancel_N = getPolyCancel(cancelStr, 1, 0, 'top');
+            let strCancel_D = getPolyCancel(cancelStr, 1, 0, 'bottom');
 
-            let stepN1 = joinTerms(strCancel_N, keepStr); 
-            let stepD1 = joinTerms(strB, strV2_D);
-            let stepN2 = joinTerms(strC, strV2_N);
+            let stepN1 = joinNum(strCancel_N, keepStr); 
+            let stepD1 = joinNum(strB, strV2_D);
+            let stepN2 = joinNum(strC, strV2_N);
             let stepD2 = strCancel_D;
 
             correctStr = formatFracAll(c, b, v, 0, v2, q2-q1, keepStr, 1);
