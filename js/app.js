@@ -34,7 +34,6 @@ let globalLeaderboard = [];
 let currentLeaderboardHash = ""; 
 let isFetchingLock = false; 
 
-// 防崩潰安全存取
 function getStoredData(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
 function setStoredData(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
 
@@ -133,7 +132,6 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
     if (myRankEnd) myRankEnd.innerHTML = myRankHtml;
 }
 
-// UI 切換邏輯
 function setQuestionNum(num) {
     totalQuestionsConfig = num;
     document.querySelectorAll('.num-btn').forEach(btn => {
@@ -179,7 +177,6 @@ function selectTopic(topic) {
     config.levels.forEach(lvl => {
         let title = lvl.title, badge = lvl.badge, desc = lvl.desc;
         
-        // Google Sheet 動態設定覆寫
         if (typeof dynamicTopicConfig !== 'undefined' && dynamicTopicConfig.length > 0) {
             let custom = dynamicTopicConfig.find(c => c.topic === topic && c.levelId === lvl.id);
             if (custom) {
@@ -267,15 +264,6 @@ function startQuizSession() {
     btn.disabled = false; btn.textContent = "傳送成績";
     btn.classList.remove('bg-slate-400'); btn.classList.add('bg-green-600');
     document.getElementById('submitStatus').classList.add('hidden');
-    
-    // 🛡️ 預先檢查前端次數限制 (提升體驗，不讓學生白做)
-    const todayStr = new Date().toDateString();
-    let localCount = parseInt(getStoredData('dse_playCount_' + todayStr)) || 0;
-    if (localCount >= 5) {
-        document.getElementById('submitStatus').textContent = "🛑 提醒：你今天已經完成 5 次，此次成績將不會寫入系統。";
-        document.getElementById('submitStatus').classList.remove('hidden');
-        document.getElementById('submitStatus').className = "text-center text-sm font-bold mt-3 text-orange-500 block";
-    }
 
     loadQuestion();
 }
@@ -334,7 +322,7 @@ function disableAllButtons() { document.querySelectorAll('.option-btn').forEach(
 function goToNext() { currentQuestionIndex++; if (currentQuestionIndex < questionBank.length) loadQuestion(); else showEndScreen(); }
 
 // ==========================================
-// 結算畫面 (依據 Google Sheet 機率決定獎勵，並產生上鎖的刮刮卡)
+// 結算畫面與動態進度條生成
 // ==========================================
 function showEndScreen() {
     document.getElementById('appContainer').classList.add('hidden');
@@ -342,9 +330,8 @@ function showEndScreen() {
     document.getElementById('finalScore').textContent = score;
     document.getElementById('totalQuestions').textContent = questionBank.length * 10;
     
-    // 依據 Google Sheet 中讀取的權重 (weight) 機率抽取座右銘與對應獎品
-    let selectedQuote = { text: "今天的累積，是明天的底氣。", reward: "" };
-    let pool = dynamicQuotes.length > 0 ? dynamicQuotes : motivationalQuotes.map(q => ({text: q, weight: 1, reward: ""}));
+    let selectedQuote = { text: "今天的累積，是明天的底氣。" };
+    let pool = dynamicQuotes.length > 0 ? dynamicQuotes : motivationalQuotes.map(q => ({text: q, weight: 1}));
     
     let totalWeight = pool.reduce((sum, q) => sum + (parseFloat(q.weight) || 1), 0);
     let randomNum = Math.random() * totalWeight;
@@ -353,71 +340,67 @@ function showEndScreen() {
         if (randomNum < w) { selectedQuote = q; break; }
         randomNum -= w;
     }
-    
     document.getElementById('motivationalQuote').textContent = selectedQuote.text;
     
-    // 建立或取得刮刮卡容器
+    // 計算目前的舊積分
+    const savedClass = String(getStoredData('dse_className')).toUpperCase().trim();
+    const savedNum = String(getStoredData('dse_classNumber')).trim();
+    let oldScore = 0;
+    if (savedClass && savedNum && globalLeaderboard && globalLeaderboard.length > 0) {
+        let student = globalLeaderboard.find(s => String(s.className).toUpperCase().trim() === savedClass && String(s.classNum).trim() === savedNum);
+        if (student) oldScore = student.totalScore;
+    }
+    
+    let currentProgress = oldScore % 100;
+    let nextThresholdDist = 100 - currentProgress;
+
     let rewardContainer = document.getElementById('rewardContainer');
     if (!rewardContainer) {
         rewardContainer = document.createElement('div');
         rewardContainer.id = 'rewardContainer';
-        // 將寬度設定與排行榜同寬，並增加上下間距
         rewardContainer.className = 'w-full max-w-xl mx-auto mt-6 mb-8';
-        
-        // 精準將刮刮卡放置在排行榜的最底 (leaderboard-end 區塊的下方)
         let leaderboardEnd = document.getElementById('leaderboard-end');
-        if (leaderboardEnd) {
-            leaderboardEnd.insertAdjacentElement('afterend', rewardContainer);
-        } else {
-            document.getElementById('motivationalQuote').parentElement.parentElement.parentElement.appendChild(rewardContainer);
-        }
+        if (leaderboardEnd) leaderboardEnd.insertAdjacentElement('afterend', rewardContainer);
     }
     
-    // 取出剛抽中的獎勵內容。若為空，則顯示「再接再厲」
-    let rewardText = (selectedQuote.reward && selectedQuote.reward.trim() !== "") ? selectedQuote.reward : "再接再厲！";
-    // 暫存此結果，讓送出表單時可以傳給後台
-    rewardContainer.dataset.reward = rewardText;
-    
-    // 👉 核心需求：刮刮卡「長期顯示」並加上「鎖」
     rewardContainer.classList.remove('hidden');
+    
+    // 👉 核心需求：渲染華麗的視覺化進度條
     rewardContainer.innerHTML = `
-        <div class="relative w-full h-20 sm:h-24 rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm" style="touch-action:none;">
-            <div class="absolute inset-0 flex items-center justify-center bg-pink-50 text-pink-600 font-bold px-4 text-center text-sm sm:text-base">🎁 ${rewardText}</div>
-            <canvas id="scratchCanvas" class="absolute inset-0 w-full h-full z-10 cursor-pointer"></canvas>
-            
-            <!-- 上鎖的遮罩層 (阻擋刮開) -->
-            <div id="scratchLockOverlay" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-200/95 backdrop-blur-sm transition-opacity duration-500">
-                <span class="text-2xl mb-1">🔒</span>
-                <span class="text-sm font-bold text-slate-600 tracking-wide">傳送成績後解鎖</span>
+        <div id="rewardZone" class="w-full bg-white border-2 border-indigo-100 rounded-xl p-5 shadow-sm relative overflow-hidden transition-all duration-500">
+            <!-- 進度條介面 -->
+            <div id="progressUI" class="block transition-opacity duration-500">
+                <div class="flex justify-between items-end mb-3">
+                    <span class="font-bold text-slate-700 text-lg">🎁 刮刮卡解鎖進度</span>
+                    <span class="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md" id="progressTextUI">${currentProgress} / 100</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-5 mb-2 overflow-hidden border border-slate-200 shadow-inner relative">
+                    <div id="progressBarFill" class="bg-gradient-to-r from-indigo-400 to-indigo-600 h-5 rounded-full transition-all duration-1000 ease-out relative" style="width: ${currentProgress}%">
+                        <div class="absolute inset-0 bg-white/20 w-full h-full animate-[pulse_2s_infinite]"></div>
+                    </div>
+                </div>
+                <div class="text-sm text-slate-500 text-center mt-3 font-medium" id="progressHint">
+                    還差 <span class="text-indigo-600 font-bold">${nextThresholdDist} 分</span> 即可獲得抽獎機會！傳送成績後更新進度。
+                </div>
+            </div>
+
+            <!-- 刮刮卡介面 (預設隱藏) -->
+            <div id="scratchUI" class="hidden opacity-0 transition-opacity duration-500">
+                <div class="relative w-full h-20 sm:h-24 rounded-xl overflow-hidden border-2 border-amber-200 shadow-sm" style="touch-action:none;">
+                    <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-r from-amber-50 to-orange-50 text-orange-600 font-bold px-4 text-center text-sm sm:text-base">🎁 <span id="rewardTextDisplay"></span></div>
+                    <canvas id="scratchCanvas" class="absolute inset-0 w-full h-full z-10 cursor-pointer"></canvas>
+                </div>
+                <div class="text-xs sm:text-sm text-amber-600 mt-3 text-center font-bold animate-pulse">✨ 恭喜達成滿百目標，快刮開上方塗層看看！✨</div>
             </div>
         </div>
-        <div class="text-xs text-slate-400 mt-2 text-center animate-pulse" id="scratchHintText">💡 傳送成績後，即可解鎖刮刮卡！</div>
     `;
-    
-    // 初始化刮刮卡灰色塗層
-    setTimeout(() => {
-        const canvas = document.getElementById('scratchCanvas');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
-        ctx.fillStyle = '#cbd5e1'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.font = 'bold 16px sans-serif'; ctx.fillStyle = '#64748b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✨ 刮開看獎勵 ✨', canvas.width / 2, canvas.height / 2);
-        ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.lineWidth = 25; ctx.globalCompositeOperation = 'destination-out';
-        
-        let isDrawing = false;
-        function getPos(e) { const rect = canvas.getBoundingClientRect(); const evt = e.touches ? e.touches[0] : e; return { x: evt.clientX - rect.left, y: evt.clientY - rect.top }; }
-        canvas.onmousedown = (e) => { isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
-        canvas.onmousemove = (e) => { if (!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
-        window.onmouseup = () => isDrawing = false;
-        canvas.ontouchstart = (e) => { e.preventDefault(); isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
-        canvas.ontouchmove = (e) => { e.preventDefault(); if (!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
-        canvas.ontouchend = () => isDrawing = false;
-    }, 100);
 }
 
 function updateScoreDisplay() { document.getElementById('scoreDisplay').textContent = score; }
 
-// --- 安全嚴謹的傳送成績 (JSON Response) ---
+// ==========================================
+// 安全嚴謹的傳送成績 (支援無限次數與進度條動畫)
+// ==========================================
 function submitToGoogleSheet() {
     const btn = document.getElementById('submitRecordBtn');
     const statusText = document.getElementById('submitStatus');
@@ -432,21 +415,12 @@ function submitToGoogleSheet() {
         return;
     }
 
-    // 儲存本地紀錄
     setStoredData('dse_className', className);
     setStoredData('dse_classNumber', classNumber);
     setStoredData('dse_studentName', studentName);
 
-    // 🛡️ 前端防護：檢查本地次數
     const todayStr = new Date().toDateString();
     let localCount = parseInt(getStoredData('dse_playCount_' + todayStr)) || 0;
-    if (localCount >= 5) {
-        statusText.textContent = "🛑 你今天已經完成 5 次修練囉！請明天再來挑戰！";
-        statusText.className = "text-center text-sm font-bold mt-3 text-orange-500 block";
-        statusText.classList.remove('hidden');
-        btn.disabled = true; btn.classList.add('opacity-50');
-        return;
-    }
 
     btn.disabled = true; btn.textContent = "傳送中..."; btn.classList.add('opacity-50');
     statusText.classList.add('hidden');
@@ -454,17 +428,6 @@ function submitToGoogleSheet() {
     let displayLevel = currentLevelPref === 'mixed' ? '綜合挑戰' : currentLevelPref.toString().toUpperCase();
     let totalScoreVal = questionBank.length * 10;
     let percentageVal = ((score / totalScoreVal) * 100).toFixed(0) + "%";
-    
-    // 讀取已經被抽中的獎勵內容
-    let rewardToSend = "";
-    const rewardContainer = document.getElementById('rewardContainer');
-    if (rewardContainer && !rewardContainer.classList.contains('hidden')) {
-        rewardToSend = rewardContainer.dataset.reward || "";
-        // 如果沒中獎，將 "再接再厲" 轉為 "無" 寫入後台表格，保持後台清爽
-        if (rewardToSend === "再接再厲！") {
-            rewardToSend = "無";
-        }
-    }
 
     const formData = new URLSearchParams();
     formData.append('className', className);
@@ -475,34 +438,75 @@ function submitToGoogleSheet() {
     formData.append('score', score);
     formData.append('totalScore', totalScoreVal);
     formData.append('percentage', percentageVal);
-    formData.append('reward', rewardToSend);
+    // 註：獎勵由 Google Apps Script 直接決定，前端不再傳送。
 
     fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // 傳送成功，更新本地遊玩次數
-                setStoredData('dse_playCount_' + todayStr, localCount + 1);
+                let backendNewTotal = parseInt(data.newTotalScore) || 0;
+                let backendPlayCount = parseInt(data.playCountToday) || 1;
+                let isCrossed = data.crossedThreshold;
+                
+                // 強制更新本地端排行榜快取，確保下一輪進度顯示精準
+                let student = globalLeaderboard.find(s => String(s.className).toUpperCase().trim() === className.toUpperCase() && String(s.classNum).trim() === classNumber);
+                if (student) { student.totalScore = backendNewTotal; } 
+                else { globalLeaderboard.push({className: className, classNum: classNumber, studentName: studentName, totalScore: backendNewTotal}); }
+                renderLeaderboards();
 
-                btn.textContent = "✅ 已成功傳送！"; btn.classList.replace('bg-green-600', 'bg-slate-400');
-                statusText.textContent = data.message; statusText.className = "text-center text-sm font-bold mt-3 text-green-600 block";
+                // 計算最新進度
+                let pointsNeeded = 100 - (backendNewTotal % 100);
+                if (pointsNeeded === 0) pointsNeeded = 100;
+                
+                let targetProgress = backendNewTotal % 100;
+                if (isCrossed) targetProgress = 100; // 如果跨越門檻，先將動畫跑滿 100%
+                
+                const fill = document.getElementById('progressBarFill');
+                const textUI = document.getElementById('progressTextUI');
+                const hint = document.getElementById('progressHint');
+                
+                if (fill) fill.style.width = targetProgress + '%';
+                if (textUI) textUI.textContent = `${backendNewTotal % 100} / 100`;
+
+                if (isCrossed) {
+                    if (hint) hint.innerHTML = `<span class="text-amber-600 font-bold">🎉 恭喜達成滿百目標！正在解鎖刮刮卡...</span>`;
+                    statusText.innerHTML = `✅ 成績傳送成功！(今日第 ${backendPlayCount} 次)<br>🎉 目前總分：${backendNewTotal} 分。邁向下一抽還差 <span class="text-indigo-600 font-bold">${100 - (backendNewTotal % 100)} 分</span>！`;
+                    
+                    // 延遲動畫，讓學生看完進度條填滿的爽快感，再翻轉為刮刮卡
+                    setTimeout(() => {
+                        const progUI = document.getElementById('progressUI');
+                        const scratchUI = document.getElementById('scratchUI');
+                        const rewardZone = document.getElementById('rewardZone');
+                        
+                        if (progUI && scratchUI && rewardZone) {
+                            progUI.classList.add('opacity-0');
+                            setTimeout(() => {
+                                progUI.classList.add('hidden');
+                                scratchUI.classList.remove('hidden');
+                                void scratchUI.offsetWidth; // 觸發重繪
+                                scratchUI.classList.remove('opacity-0');
+                                rewardZone.classList.replace('border-indigo-100', 'border-amber-300');
+                                rewardZone.classList.replace('bg-white', 'bg-amber-50');
+                                
+                                // 顯示後台決定的獎勵
+                                let finalReward = data.reward && data.reward !== "無" ? data.reward : "再接再厲！";
+                                document.getElementById('rewardTextDisplay').textContent = finalReward;
+                                renderScratchCard();
+                            }, 500);
+                        }
+                    }, 1500);
+                } else {
+                    if (hint) hint.innerHTML = `還差 <span class="text-indigo-600 font-bold">${pointsNeeded} 分</span> 即可獲得抽獎機會！傳送成績後更新進度。`;
+                    statusText.innerHTML = `✅ 成績傳送成功！(今日第 ${backendPlayCount} 次)<br>📊 目前總分：${backendNewTotal} 分。`;
+                }
+                
+                statusText.className = "text-center text-sm font-bold mt-3 text-green-600 block leading-relaxed";
                 statusText.classList.remove('hidden');
-
-                // 👉 核心需求：成績傳送成功，解鎖底部的刮刮卡！
-                const lockOverlay = document.getElementById('scratchLockOverlay');
-                const hintText = document.getElementById('scratchHintText');
-                if (lockOverlay) {
-                    lockOverlay.style.opacity = '0'; // 漸變消失
-                    setTimeout(() => lockOverlay.classList.add('hidden'), 500); // 完全移除，讓學生可以刮
-                }
-                if (hintText) {
-                    hintText.textContent = "✨ 恭喜解鎖，快刮開塗層看看！✨";
-                    hintText.className = "text-xs text-green-600 mt-2 text-center font-bold animate-pulse";
-                }
-
+                btn.textContent = "✅ 已成功傳送！"; 
+                btn.classList.replace('bg-green-600', 'bg-slate-400');
+                
                 setTimeout(() => { fetchConfig(true); }, 2000);
             } else {
-                // 被後台門衛擋下
                 btn.disabled = false; btn.textContent = "重新傳送"; btn.classList.remove('opacity-50');
                 statusText.textContent = data.message; statusText.className = "text-center text-sm font-bold mt-3 text-red-500 block";
                 statusText.classList.remove('hidden');
@@ -513,6 +517,25 @@ function submitToGoogleSheet() {
             statusText.textContent = "❌ 傳送失敗，請檢查網路連線。"; statusText.className = "text-center text-sm font-bold mt-3 text-red-500 block";
             statusText.classList.remove('hidden');
         });
+}
+
+function renderScratchCard() {
+    const canvas = document.getElementById('scratchCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+    ctx.fillStyle = '#cbd5e1'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = 'bold 16px sans-serif'; ctx.fillStyle = '#64748b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✨ 刮開看獎勵 ✨', canvas.width / 2, canvas.height / 2);
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.lineWidth = 25; ctx.globalCompositeOperation = 'destination-out';
+    
+    let isDrawing = false;
+    function getPos(e) { const rect = canvas.getBoundingClientRect(); const evt = e.touches ? e.touches[0] : e; return { x: evt.clientX - rect.left, y: evt.clientY - rect.top }; }
+    canvas.onmousedown = (e) => { isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+    canvas.onmousemove = (e) => { if (!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
+    window.onmouseup = () => isDrawing = false;
+    canvas.ontouchstart = (e) => { e.preventDefault(); isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+    canvas.ontouchmove = (e) => { e.preventDefault(); if (!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
+    canvas.ontouchend = () => isDrawing = false;
 }
 
 function renderMath() {
@@ -538,7 +561,6 @@ window.submitToGoogleSheet = submitToGoogleSheet;
 window.onload = () => { 
     showTopicScreen(); 
     fetchConfig(); 
-
     setInterval(() => fetchConfig(true), 5000); 
 
     const savedClass = getStoredData('dse_className');
