@@ -262,8 +262,11 @@
                     <button id="submitRecordBtn" onclick="submitToGoogleSheet()" class="w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-colors shadow-md text-sm sm:text-base">
                         傳送成績
                     </button>
-                    <p id="submitStatus" class="text-center text-xs sm:text-sm font-bold mt-3 hidden"></p>
+                    <p id="submitStatus" class="text-center text-xs sm:text-sm font-bold mt-3 hidden transition-all"></p>
                 </div>
+
+                <!-- 🌟 進度條與刮刮卡專屬預留區塊 🌟 -->
+                <div id="rewardContainer" class="w-full max-w-xl mx-auto mb-8 hidden transition-all duration-500"></div>
 
                 <!-- 🏆 勤學排行榜 (結算頁) -->
                 <div id="leaderboard-end" class="max-w-xl mx-auto mb-8 p-5 sm:p-6 bg-amber-50 border border-amber-200 rounded-xl shadow-sm text-left">
@@ -315,28 +318,28 @@
     </div>
 
     <div class="fixed bottom-3 left-3 text-slate-400 font-medium text-sm z-50">
-        版本：V69 (進度條無限修練)
+        版本：V71 (強制破除快取版)
     </div>
 
     <!-- ========================================== -->
-    <!-- 引入外部 JS 檔案 -->
+    <!-- 引入外部 JS 檔案 (加入 ?v=71 強制抓取最新代碼) -->
     <!-- ========================================== -->
     
-    <!-- 1. 核心工具 (必須最先載入) -->
-    <script src="js/utils.js"></script>
+    <!-- 1. 核心工具 -->
+    <script src="js/utils.js?v=71"></script>
 
     <!-- 2. 各單元題庫 -->
-    <script src="js/topics/indices.js"></script>
-    <script src="js/topics/factorization.js"></script>
-    <script src="js/topics/rounding.js"></script>
-    <script src="js/topics/identities.js"></script>
-    <script src="js/topics/fractions.js"></script>
-    <script src="js/topics/binary.js"></script>
-    <script src="js/topics/expansion.js"></script>
-    <script src="js/topics/algebraic_fractions_mul_div.js"></script>
+    <script src="js/topics/indices.js?v=71"></script>
+    <script src="js/topics/factorization.js?v=71"></script>
+    <script src="js/topics/rounding.js?v=71"></script>
+    <script src="js/topics/identities.js?v=71"></script>
+    <script src="js/topics/fractions.js?v=71"></script>
+    <script src="js/topics/binary.js?v=71"></script>
+    <script src="js/topics/expansion.js?v=71"></script>
+    <script src="js/topics/algebraic_fractions_mul_div.js?v=71"></script>
 
-    <!-- 3. 主程式邏輯 (必須放在最後，確保所有工具和題庫都已載入) -->
-    <script src="js/app.js"></script>
+    <!-- 3. 主程式邏輯 (進度條核心) -->
+    <script src="js/app.js?v=71"></script>
 
 </body>
 </html>
