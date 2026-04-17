@@ -5,7 +5,7 @@
 // ==========================================
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw_h7rVev1VtAuPK4BFGR4i3lLMC2dGH_X6lkeB5IHZNHWPSBcQtFGNg0U9ZEteZMs/exec"; 
 
-// 🛑 終極大絕招版：前端不需要設定任何 API 金鑰，由後台全權代理！
+// 🛑 關閉 AI 手寫功能：全系統恢復為純 MC (選擇題) 模式！
 const ENABLE_AI_HANDWRITING = false; 
 
 const motivationalQuotes = [
@@ -203,7 +203,7 @@ function selectTopic(topic) {
     });
 }
 
-// 🌟 手寫題比例分配演算法
+// 🌟 手寫題比例分配演算法 (若關閉則完全不啟用)
 function assignHandwriting(bank) {
     if (!ENABLE_AI_HANDWRITING) return; 
 
@@ -301,7 +301,7 @@ function startQuizSession() {
 
 function loadQuestion() {
     attemptsCount = 0; 
-    currentRecognizedLaTeX = ""; // 重置 AI 辨識字串
+    currentRecognizedLaTeX = ""; 
     
     const q = questionBank[currentQuestionIndex];
     document.getElementById('topicBadge').textContent = q.topic;
@@ -309,19 +309,17 @@ function loadQuestion() {
     document.getElementById('progressText').textContent = `完成 ${currentQuestionIndex}/${questionBank.length}`;
     hideFeedback();
     
-    // 隱藏可能殘留的確認介面
     if (document.getElementById('hw-confirm-ui')) {
         document.getElementById('hw-confirm-ui').classList.add('hidden');
     }
     
-    // UI 標記提示是否為手寫題
     let typeLabel = q.isHandwriting ? `<span class="inline-block bg-amber-100 text-amber-700 px-3 py-1 rounded-md text-sm font-bold align-middle mt-2 sm:mt-0 shadow-sm border border-amber-200">✍️ AI 手寫題</span>` : "";
     document.getElementById('questionText').innerHTML = q.question + `<div class="mt-2 text-center">${typeLabel}</div>`;
 
     const optionsGrid = document.getElementById('optionsGrid');
     const hwArea = document.getElementById('handwritingArea');
     
-    // 🌟 智能切換：手寫區 vs 選擇題區
+    // 🌟 MC 題或手寫題切換
     if (q.isHandwriting) {
         optionsGrid.classList.add('hidden');
         if (hwArea) {
@@ -330,7 +328,6 @@ function loadQuestion() {
             document.getElementById('clear-btn').disabled = false;
             document.getElementById('recognize-btn').disabled = false;
             
-            // 延遲初始化畫布，確保 CSS 已經顯示正確的尺寸
             setTimeout(() => {
                 resizeCanvas();
                 initCanvas();
@@ -480,11 +477,9 @@ function setupCanvasEvents() {
         document.getElementById('handwritingArea').classList.remove('border-4', 'border-green-500', 'border-red-400');
     });
     
-    // 綁定兩階段的「階段一：影像辨識 OCR」
     document.getElementById('recognize-btn').addEventListener('click', startRecognitionPhase);
     window.addEventListener('resize', resizeCanvas);
     
-    // 動態生成確認介面 (Confirmation UI)
     const hwArea = document.getElementById('handwritingArea');
     const canvasContainer = hwArea.querySelector('.relative'); 
     if (!document.getElementById('hw-confirm-ui')) {
@@ -521,7 +516,6 @@ async function fetchWithRetry(url, options, maxRetries = 5) {
     }
 }
 
-// 👉 階段一：辨識圖像為 LaTeX (傳送給 server.gs 處理)
 async function startRecognitionPhase() {
     const canvas = document.getElementById('draw-canvas');
     const dataURL = canvas.toDataURL('image/png');
@@ -540,7 +534,6 @@ async function startRecognitionPhase() {
         formData.append('action', 'ai_ocr');
         formData.append('image', base64Image);
 
-        // 將圖片發送給 Google Apps Script，由它去呼叫 Google AI
         const result = await fetchWithRetry(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
         
         if (!result.success) throw new Error(result.message);
@@ -570,7 +563,6 @@ window.rewriteHandwriting = function() {
     document.getElementById('clear-btn').disabled = false;
 };
 
-// 👉 階段二：學生確認後，丟給 server.gs 進行邏輯批改
 window.confirmAndGrade = async function() {
     document.getElementById('hw-confirm-ui').classList.add('hidden');
     
@@ -591,7 +583,6 @@ window.confirmAndGrade = async function() {
         formData.append('studentLatex', currentRecognizedLaTeX);
         formData.append('standardAns', standardAns);
 
-        // 將文字發送給 Google Apps Script，由它去呼叫 Google AI
         const result = await fetchWithRetry(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
         
         if (!result.success) throw new Error(result.message);
