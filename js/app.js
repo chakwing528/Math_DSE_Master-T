@@ -5,6 +5,9 @@
 // ==========================================
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw_h7rVev1VtAuPK4BFGR4i3lLMC2dGH_X6lkeB5IHZNHWPSBcQtFGNg0U9ZEteZMs/exec"; 
 
+// 🛑 終極大絕招版：前端不需要設定任何 API 金鑰，由後台全權代理！
+const ENABLE_AI_HANDWRITING = False; 
+
 const motivationalQuotes = [
     "未來的你，必定感激今天努力的自己。", "默默耕耘，總有收穫。", "答應自己，每天堅持多 1 分鐘。", "今天的累積，是明天的底氣。"
 ];
@@ -17,7 +20,8 @@ const fallbackConfigs = {
     'fractions': { name: '通分母', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S2、DSE', desc: '分母為一元一次<br>分子為常數。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S4', desc: '分母為一元二次<br>需先因式分解再通分母。' } ] },
     'binary': { name: '二進制', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S3、DSE', desc: '二進制轉十進制<br>只有加法。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S3、DSE', desc: '十進制轉二進制<br>只有加法。' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S3、DSE', desc: '綜合轉換<br>包含加法與減法。' } ] },
     'expansion': { name: '恆等式的展開', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S2', desc: '展開 (x+a)² 或 (x+a)(x-a)<br>基礎展開。' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S3、DSE', desc: '展開 (bx+a)² 或 (bx+a)(bx-a)<br>b 為正整數。' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S3、DSE', desc: '展開 (bx+a)² 或 (bx+a)(bx-a)<br>a 與 b 皆可為負數。' } ] },
-    'alg_frac_mul_div': { name: '代數分式的乘除法', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S2', desc: '單項式乘除法<br>指數定律約簡' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S2', desc: '二項式乘除法<br>提公因式與變號' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S3、DSE', desc: '進階因式分解<br>平方差與完全平方' }, { id: 'L4', title: '⭐⭐⭐⭐ 程度 4', badge: 'S3、DSE', desc: '進階因式分解<br>十字相乘法' } ] }
+    'alg_frac_mul_div': { name: '代數分式的乘除法', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S2', desc: '單項式乘除法<br>指數定律約簡' }, { id: 'L2', title: '⭐⭐ 程度 2', badge: 'S2', desc: '二項式乘除法<br>提公因式與變號' }, { id: 'L3', title: '⭐⭐⭐ 程度 3', badge: 'S3、DSE', desc: '進階因式分解<br>平方差與完全平方' }, { id: 'L4', title: '⭐⭐⭐⭐ 程度 4', badge: 'S3、DSE', desc: '進階因式分解<br>十字相乘法' } ] },
+    'triangle_area': { name: '三角形面積', levels: [ { id: 'L1', title: '⭐ 程度 1', badge: 'S3、DSE', desc: '包含 1/2absinC 及 希羅公式<br>考驗公式判別與計算。' } ] }
 };
 
 let questionBank = [];
@@ -33,6 +37,9 @@ let dynamicTopicConfig = [];
 let globalLeaderboard = []; 
 let currentLeaderboardHash = ""; 
 let isFetchingLock = false; 
+
+// 🌟 兩階段辨識所需的全域變數
+let currentRecognizedLaTeX = "";
 
 function getStoredData(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
 function setStoredData(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
@@ -196,6 +203,26 @@ function selectTopic(topic) {
     });
 }
 
+// 🌟 手寫題比例分配演算法
+function assignHandwriting(bank) {
+    if (!ENABLE_AI_HANDWRITING) return; 
+
+    let hwCount = 0;
+    if (bank.length === 3) hwCount = 1;
+    else if (bank.length === 5) hwCount = 2;
+    else if (bank.length === 10) hwCount = 5;
+    else if (bank.length > 0) hwCount = Math.floor(bank.length / 2);
+
+    let indices = Array.from({length: bank.length}, (_, i) => i);
+    indices = shuffleArray(indices).slice(0, hwCount);
+    
+    for (let i of indices) {
+        if(bank[i]) {
+            bank[i].isHandwriting = true;
+        }
+    }
+}
+
 function startGlobalMixed(level) {
     try {
         currentTopic = 'global_mixed';
@@ -203,7 +230,7 @@ function startGlobalMixed(level) {
         currentLevelPref = level;
         document.getElementById('questionInstruction').classList.add('hidden');
 
-        let topicsList = ['indices', 'factorization', 'rounding', 'identities', 'fractions', 'binary', 'expansion', 'alg_frac_mul_div'];
+        let topicsList = ['indices', 'factorization', 'rounding', 'identities', 'fractions', 'binary', 'expansion', 'alg_frac_mul_div', 'triangle_area'];
         let numQ = Math.max(totalQuestionsConfig, topicsList.length);
         let selectedTopics = [...topicsList];
         while (selectedTopics.length < numQ) selectedTopics.push(topicsList[Math.floor(Math.random() * topicsList.length)]);
@@ -225,10 +252,12 @@ function startGlobalMixed(level) {
             else if (t === 'binary') qArr = generateBinaryQuestions(1, lvl);
             else if (t === 'expansion') qArr = generateExpansionQuestions(1, lvl);
             else if (t === 'alg_frac_mul_div') qArr = generateAlgFracMulDivQuestions(1, lvl);
+            else if (t === 'triangle_area') qArr = generateTriangleAreaQuestions(1, lvl);
 
             if (qArr && qArr.length > 0) { qArr[0].id = idx + 1; questionBank.push(qArr[0]); }
         });
 
+        assignHandwriting(questionBank);
         startQuizSession();
     } catch (error) { alert("🚨 系統錯誤！無法讀取跨課題題庫。\n原因：" + error.message); }
 }
@@ -248,7 +277,9 @@ function startGame(levelPref) {
         else if (currentTopic === 'binary') questionBank = generateBinaryQuestions(totalQuestionsConfig, currentLevelPref);
         else if (currentTopic === 'expansion') questionBank = generateExpansionQuestions(totalQuestionsConfig, currentLevelPref);
         else if (currentTopic === 'alg_frac_mul_div') questionBank = generateAlgFracMulDivQuestions(totalQuestionsConfig, currentLevelPref);
+        else if (currentTopic === 'triangle_area') questionBank = generateTriangleAreaQuestions(totalQuestionsConfig, currentLevelPref);
         
+        assignHandwriting(questionBank);
         startQuizSession();
     } catch (error) { alert("🚨 系統錯誤！無法讀取題庫。\n原因：" + error.message); }
 }
@@ -270,25 +301,58 @@ function startQuizSession() {
 
 function loadQuestion() {
     attemptsCount = 0; 
+    currentRecognizedLaTeX = ""; // 重置 AI 辨識字串
+    
     const q = questionBank[currentQuestionIndex];
     document.getElementById('topicBadge').textContent = q.topic;
     document.getElementById('levelBadge').innerHTML = currentTopic === 'global_mixed' ? `綜合挑戰 (難度: ${currentLevelPref})` : `難度: ${q.level}`;
     document.getElementById('progressText').textContent = `完成 ${currentQuestionIndex}/${questionBank.length}`;
     hideFeedback();
-    document.getElementById('questionText').innerHTML = q.question;
+    
+    // 隱藏可能殘留的確認介面
+    if (document.getElementById('hw-confirm-ui')) {
+        document.getElementById('hw-confirm-ui').classList.add('hidden');
+    }
+    
+    // UI 標記提示是否為手寫題
+    let typeLabel = q.isHandwriting ? `<span class="inline-block bg-amber-100 text-amber-700 px-3 py-1 rounded-md text-sm font-bold align-middle mt-2 sm:mt-0 shadow-sm border border-amber-200">✍️ AI 手寫題</span>` : "";
+    document.getElementById('questionText').innerHTML = q.question + `<div class="mt-2 text-center">${typeLabel}</div>`;
 
     const optionsGrid = document.getElementById('optionsGrid');
-    optionsGrid.innerHTML = ''; 
-    q.options.forEach(opt => {
-        const btn = document.createElement('button');
-        btn.className = 'option-btn relative p-3 sm:p-4 bg-white border-2 border-slate-200 rounded-xl text-base sm:text-lg text-slate-700 font-medium hover:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100 flex items-center gap-3 text-left w-full overflow-hidden';
-        btn.onclick = () => handleAnswer(opt, btn);
-        btn.innerHTML = `<span class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0">${opt.id}</span><span class="overflow-x-auto math-scroll max-w-full flex-1 py-1">${opt.text}</span>`;
-        optionsGrid.appendChild(btn);
-    });
+    const hwArea = document.getElementById('handwritingArea');
+    
+    // 🌟 智能切換：手寫區 vs 選擇題區
+    if (q.isHandwriting) {
+        optionsGrid.classList.add('hidden');
+        if (hwArea) {
+            hwArea.classList.remove('hidden');
+            hwArea.classList.remove('border-4', 'border-green-500', 'border-red-400');
+            document.getElementById('clear-btn').disabled = false;
+            document.getElementById('recognize-btn').disabled = false;
+            
+            // 延遲初始化畫布，確保 CSS 已經顯示正確的尺寸
+            setTimeout(() => {
+                resizeCanvas();
+                initCanvas();
+            }, 50);
+        }
+    } else {
+        optionsGrid.classList.remove('hidden');
+        if (hwArea) hwArea.classList.add('hidden');
+        
+        optionsGrid.innerHTML = ''; 
+        q.options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn relative p-3 sm:p-4 bg-white border-2 border-slate-200 rounded-xl text-base sm:text-lg text-slate-700 font-medium hover:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100 flex items-center gap-3 text-left w-full overflow-hidden';
+            btn.onclick = () => handleAnswer(opt, btn);
+            btn.innerHTML = `<span class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0">${opt.id}</span><span class="overflow-x-auto math-scroll max-w-full flex-1 py-1">${opt.text}</span>`;
+            optionsGrid.appendChild(btn);
+        });
+    }
     renderMath();
 }
 
+// 選擇題答題邏輯
 function handleAnswer(selectedOption, buttonElement) {
     attemptsCount++;
     if (selectedOption.isCorrect) {
@@ -309,7 +373,7 @@ function showFeedback(type, message, showNextBtn) {
     const fbArea = document.getElementById('feedbackArea');
     const fbBox = document.getElementById('feedbackBox');
     fbArea.classList.remove('hidden');
-    fbBox.className = type === 'correct' ? 'p-4 rounded-xl border bg-green-50 border-green-200 w-full overflow-hidden' : 'p-4 rounded-xl border bg-orange-50 border-orange-200 w-full overflow-hidden';
+    fbBox.className = type === 'correct' ? 'p-4 rounded-xl border bg-green-50 border-green-200 w-full overflow-hidden shadow-sm' : 'p-4 rounded-xl border bg-orange-50 border-orange-200 w-full overflow-hidden shadow-sm';
     document.getElementById('feedbackMessage').innerHTML = message;
     
     const nextBtn = document.getElementById('nextBtn');
@@ -320,6 +384,260 @@ function showFeedback(type, message, showNextBtn) {
 function hideFeedback() { document.getElementById('feedbackArea').classList.add('hidden'); }
 function disableAllButtons() { document.querySelectorAll('.option-btn').forEach(btn => { if (!btn.classList.contains('border-green-500')) btn.disabled = true; }); }
 function goToNext() { currentQuestionIndex++; if (currentQuestionIndex < questionBank.length) loadQuestion(); else showEndScreen(); }
+
+// ==========================================
+// 🖌️ 畫布繪圖核心邏輯 (Canvas)
+// ==========================================
+let isDrawing = false;
+let lastX = 0;
+let lastY = 0;
+
+function initCanvas() {
+    const canvas = document.getElementById('draw-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+}
+
+function resizeCanvas() {
+    const canvas = document.getElementById('draw-canvas');
+    if (!canvas || !canvas.parentElement) return;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCanvas.width = canvas.width; 
+    tempCanvas.height = canvas.height;
+    if (canvas.width > 0 && canvas.height > 0) {
+        tempCtx.drawImage(canvas, 0, 0);
+    }
+    
+    canvas.width = rect.width; 
+    canvas.height = rect.height;
+    initCanvas();
+    if (tempCanvas.width > 0 && tempCanvas.height > 0) {
+        canvas.getContext('2d').drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
+    }
+}
+
+function getPos(e) {
+    const canvas = document.getElementById('draw-canvas');
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return { 
+        x: (clientX - rect.left) * scaleX, 
+        y: (clientY - rect.top) * scaleY 
+    };
+}
+
+function startDrawing(e) {
+    e.preventDefault(); 
+    isDrawing = true;
+    const pos = getPos(e); 
+    lastX = pos.x; 
+    lastY = pos.y;
+}
+
+function draw(e) {
+    if (!isDrawing) return; 
+    e.preventDefault();
+    const pos = getPos(e);
+    const ctx = document.getElementById('draw-canvas').getContext('2d');
+    ctx.beginPath(); 
+    ctx.moveTo(lastX, lastY); 
+    ctx.lineTo(pos.x, pos.y); 
+    ctx.stroke();
+    lastX = pos.x; 
+    lastY = pos.y;
+}
+
+function stopDrawing() { 
+    isDrawing = false; 
+}
+
+function setupCanvasEvents() {
+    const canvas = document.getElementById('draw-canvas');
+    if (!canvas) return;
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+    canvas.addEventListener('touchstart', startDrawing, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', stopDrawing);
+    canvas.addEventListener('touchcancel', stopDrawing);
+    
+    document.getElementById('clear-btn').addEventListener('click', () => {
+        initCanvas();
+        document.getElementById('handwritingArea').classList.remove('border-4', 'border-green-500', 'border-red-400');
+    });
+    
+    // 綁定兩階段的「階段一：影像辨識 OCR」
+    document.getElementById('recognize-btn').addEventListener('click', startRecognitionPhase);
+    window.addEventListener('resize', resizeCanvas);
+    
+    // 動態生成確認介面 (Confirmation UI)
+    const hwArea = document.getElementById('handwritingArea');
+    const canvasContainer = hwArea.querySelector('.relative'); 
+    if (!document.getElementById('hw-confirm-ui')) {
+        const confirmUI = document.createElement('div');
+        confirmUI.id = 'hw-confirm-ui';
+        confirmUI.className = 'hidden absolute inset-0 bg-white/95 z-20 flex flex-col items-center justify-center p-4 backdrop-blur-sm transition-all';
+        confirmUI.innerHTML = `
+            <h3 class="text-lg sm:text-xl font-bold text-indigo-700 mb-2">🤖 AI 辨識結果</h3>
+            <div id="hw-confirm-math" class="text-xl sm:text-2xl overflow-x-auto math-scroll py-4 px-2 w-full bg-white rounded-lg border-2 border-indigo-200 mb-4 min-h-[80px] flex items-center justify-center shadow-inner text-slate-800"></div>
+            <p class="text-sm sm:text-base text-slate-600 font-bold mb-4">請問這是你寫的公式嗎？</p>
+            <div class="flex gap-3 w-full max-w-sm">
+                <button onclick="rewriteHandwriting()" class="flex-1 py-3 bg-slate-100 text-slate-700 border border-slate-300 font-bold rounded-xl hover:bg-slate-200 transition-colors shadow-sm text-sm sm:text-base">❌ 辨識錯了</button>
+                <button onclick="confirmAndGrade()" class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-md text-sm sm:text-base">✅ 正確，去批改</button>
+            </div>
+        `;
+        canvasContainer.appendChild(confirmUI);
+    }
+}
+
+// ==========================================
+// 🤖 終極大絕招：透過 Google Apps Script 後台代理呼叫 Gemini AI
+// ==========================================
+async function fetchWithRetry(url, options, maxRetries = 5) {
+    let delays = [1000, 2000, 4000, 8000, 16000];
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const response = await fetch(url, options);
+            if (!response.ok) throw new Error(`HTTP 錯誤: ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            if (i === maxRetries - 1) throw error;
+            await new Promise(resolve => setTimeout(resolve, delays[i]));
+        }
+    }
+}
+
+// 👉 階段一：辨識圖像為 LaTeX (傳送給 server.gs 處理)
+async function startRecognitionPhase() {
+    const canvas = document.getElementById('draw-canvas');
+    const dataURL = canvas.toDataURL('image/png');
+    const base64Image = dataURL.split(',')[1];
+    
+    const loadingDiv = document.getElementById('ai-loading');
+    loadingDiv.querySelector('p').innerHTML = "AI 老師正在努力看懂你的筆跡...<br><span class='text-sm font-normal text-slate-500'>由伺服器代理中，請稍候</span>";
+    loadingDiv.classList.remove('hidden');
+    
+    document.getElementById('recognize-btn').disabled = true;
+    document.getElementById('clear-btn').disabled = true;
+    document.getElementById('handwritingArea').classList.remove('border-4', 'border-green-500', 'border-red-400');
+    
+    try {
+        const formData = new URLSearchParams();
+        formData.append('action', 'ai_ocr');
+        formData.append('image', base64Image);
+
+        // 將圖片發送給 Google Apps Script，由它去呼叫 Google AI
+        const result = await fetchWithRetry(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
+        
+        if (!result.success) throw new Error(result.message);
+        
+        currentRecognizedLaTeX = result.latex;
+        loadingDiv.classList.add('hidden');
+        
+        const confirmUI = document.getElementById('hw-confirm-ui');
+        const mathDiv = document.getElementById('hw-confirm-math');
+        mathDiv.innerHTML = `\\( \\displaystyle ${currentRecognizedLaTeX} \\)`;
+        confirmUI.classList.remove('hidden');
+        renderMath();
+        
+    } catch (err) {
+        console.error(err);
+        alert(`⚠️ 辨識失敗！\n\n詳細錯誤：${err.message}\n\n請聯絡老師確認後台設定。`);
+        loadingDiv.classList.add('hidden');
+        document.getElementById('recognize-btn').disabled = false;
+        document.getElementById('clear-btn').disabled = false;
+    }
+}
+
+window.rewriteHandwriting = function() {
+    document.getElementById('hw-confirm-ui').classList.add('hidden');
+    initCanvas(); 
+    document.getElementById('recognize-btn').disabled = false;
+    document.getElementById('clear-btn').disabled = false;
+};
+
+// 👉 階段二：學生確認後，丟給 server.gs 進行邏輯批改
+window.confirmAndGrade = async function() {
+    document.getElementById('hw-confirm-ui').classList.add('hidden');
+    
+    const loadingDiv = document.getElementById('ai-loading');
+    loadingDiv.querySelector('p').innerHTML = "AI 老師正在進行數學邏輯批改...<br><span class='text-sm font-normal text-slate-500'>比對等價性中</span>";
+    loadingDiv.classList.remove('hidden');
+
+    try {
+        let q = questionBank[currentQuestionIndex];
+        let correctOpt = q.options.find(o => o.isCorrect);
+        
+        let tempDiv = document.createElement('div');
+        tempDiv.innerHTML = correctOpt.text;
+        let standardAns = tempDiv.textContent || tempDiv.innerText;
+        
+        const formData = new URLSearchParams();
+        formData.append('action', 'ai_grade');
+        formData.append('studentLatex', currentRecognizedLaTeX);
+        formData.append('standardAns', standardAns);
+
+        // 將文字發送給 Google Apps Script，由它去呼叫 Google AI
+        const result = await fetchWithRetry(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
+        
+        if (!result.success) throw new Error(result.message);
+        
+        loadingDiv.classList.add('hidden');
+        attemptsCount++;
+        
+        let feedbackHtml = `<div class="mb-3 p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-slate-800 shadow-sm">
+            <div class="font-bold text-indigo-700 mb-2">🤖 你的作答 (AI 辨識)：</div>
+            <div class="text-xl overflow-x-auto math-scroll py-2 bg-white rounded-lg border border-white text-center">\\( \\displaystyle ${currentRecognizedLaTeX} \\)</div>
+            ${result.reason ? `<div class="mt-3 text-red-600 font-bold border-t border-indigo-100 pt-2">💡 老師點評：${result.reason}</div>` : ''}
+        </div>`;
+        
+        let finalHint = feedbackHtml + correctOpt.hint;
+
+        if (result.isCorrect) {
+            if (attemptsCount === 1) { score += 10; updateScoreDisplay(); }
+            showFeedback('correct', finalHint, true);
+            document.getElementById('handwritingArea').classList.add('border-4', 'border-green-500');
+        } else {
+            showFeedback('incorrect', finalHint, false);
+            document.getElementById('handwritingArea').classList.add('border-4', 'border-red-400');
+            document.getElementById('recognize-btn').disabled = false;
+            document.getElementById('clear-btn').disabled = false;
+            
+            if (attemptsCount >= 2) {
+                let giveUpHtml = `<div class="mt-4 text-center"><button onclick="giveUpHandwriting()" class="px-5 py-2 bg-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-300 transition-colors shadow-sm">放棄作答並看正確步驟</button></div>`;
+                document.getElementById('feedbackMessage').innerHTML += giveUpHtml;
+            }
+        }
+        
+    } catch (err) {
+        console.error(err);
+        alert(`⚠️ 批改失敗！\n\n詳細錯誤：${err.message}`);
+        loadingDiv.classList.add('hidden');
+        document.getElementById('hw-confirm-ui').classList.remove('hidden');
+    }
+};
+
+window.giveUpHandwriting = function() {
+    let q = questionBank[currentQuestionIndex];
+    let correctOpt = q.options.find(o => o.isCorrect);
+    showFeedback('incorrect', correctOpt.hint, true); 
+    document.getElementById('clear-btn').disabled = true;
+    document.getElementById('recognize-btn').disabled = true;
+};
 
 // ==========================================
 // 結算畫面與動態進度條生成
@@ -342,7 +660,6 @@ function showEndScreen() {
     }
     document.getElementById('motivationalQuote').textContent = selectedQuote.text;
     
-    // 計算目前的舊積分
     const savedClass = String(getStoredData('dse_className')).toUpperCase().trim();
     const savedNum = String(getStoredData('dse_classNumber')).trim();
     let oldScore = 0;
@@ -354,13 +671,11 @@ function showEndScreen() {
     let currentProgress = oldScore % 100;
     let nextThresholdDist = 100 - currentProgress;
 
-    // 將進度條準確渲染到 index.html 中預留的 placeholder
     let rewardContainer = document.getElementById('rewardContainer');
     if (rewardContainer) {
         rewardContainer.classList.remove('hidden');
         rewardContainer.innerHTML = `
             <div id="rewardZone" class="w-full bg-white border-2 border-indigo-100 rounded-xl p-5 shadow-sm relative overflow-hidden transition-all duration-500">
-                <!-- 進度條介面 -->
                 <div id="progressUI" class="block transition-opacity duration-500">
                     <div class="flex justify-between items-end mb-3">
                         <span class="font-bold text-slate-700 text-lg">🎁 刮刮卡解鎖進度</span>
@@ -376,7 +691,6 @@ function showEndScreen() {
                     </div>
                 </div>
 
-                <!-- 刮刮卡介面 (預設隱藏) -->
                 <div id="scratchUI" class="hidden opacity-0 transition-opacity duration-500">
                     <div class="relative w-full h-20 sm:h-24 rounded-xl overflow-hidden border-2 border-amber-200 shadow-sm" style="touch-action:none;">
                         <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-r from-amber-50 to-orange-50 text-orange-600 font-bold px-4 text-center text-sm sm:text-base">🎁 <span id="rewardTextDisplay"></span></div>
@@ -392,7 +706,7 @@ function showEndScreen() {
 function updateScoreDisplay() { document.getElementById('scoreDisplay').textContent = score; }
 
 // ==========================================
-// 安全嚴謹的傳送成績 (支援無限次數與進度條動畫)
+// 安全嚴謹的傳送成績
 // ==========================================
 function submitToGoogleSheet() {
     const btn = document.getElementById('submitRecordBtn');
@@ -412,9 +726,6 @@ function submitToGoogleSheet() {
     setStoredData('dse_classNumber', classNumber);
     setStoredData('dse_studentName', studentName);
 
-    const todayStr = new Date().toDateString();
-    let localCount = parseInt(getStoredData('dse_playCount_' + todayStr)) || 0;
-
     btn.disabled = true; btn.textContent = "傳送中..."; btn.classList.add('opacity-50');
     statusText.classList.add('hidden');
     
@@ -431,7 +742,6 @@ function submitToGoogleSheet() {
     formData.append('score', score);
     formData.append('totalScore', totalScoreVal);
     formData.append('percentage', percentageVal);
-    // 註：獎勵由 Google Apps Script 直接決定，前端不再傳送。
 
     fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData })
         .then(response => response.json())
@@ -440,25 +750,18 @@ function submitToGoogleSheet() {
                 let backendNewTotal = parseInt(data.newTotalScore) || 0;
                 let backendPlayCount = parseInt(data.playCountToday) || 1;
                 let isCrossed = data.crossedThreshold;
-                let officialName = data.officialName || studentName; // 🌟 接收後台回傳的官方白名單名字
+                let officialName = data.officialName || studentName; 
                 
-                // 強制更新本地端排行榜快取，確保下一輪進度顯示精準
                 let student = globalLeaderboard.find(s => String(s.className).toUpperCase().trim() === className.toUpperCase() && String(s.classNum).trim() === classNumber);
-                if (student) { 
-                    student.totalScore = backendNewTotal; 
-                    // 🌟 保留官方排行榜中的名字，不被本地輸入覆蓋
-                } 
-                else { 
-                    globalLeaderboard.push({className: className, classNum: classNumber, studentName: officialName, totalScore: backendNewTotal}); 
-                }
+                if (student) { student.totalScore = backendNewTotal; } 
+                else { globalLeaderboard.push({className: className, classNum: classNumber, studentName: officialName, totalScore: backendNewTotal}); }
                 renderLeaderboards();
 
-                // 計算最新進度
                 let pointsNeeded = 100 - (backendNewTotal % 100);
                 if (pointsNeeded === 0) pointsNeeded = 100;
                 
                 let targetProgress = backendNewTotal % 100;
-                if (isCrossed) targetProgress = 100; // 如果跨越門檻，先將動畫跑滿 100%
+                if (isCrossed) targetProgress = 100; 
                 
                 const fill = document.getElementById('progressBarFill');
                 const textUI = document.getElementById('progressTextUI');
@@ -471,7 +774,6 @@ function submitToGoogleSheet() {
                     if (hint) hint.innerHTML = `<span class="text-amber-600 font-bold">🎉 恭喜達成滿百目標！正在解鎖刮刮卡...</span>`;
                     statusText.innerHTML = `✅ 成績傳送成功！(今日第 ${backendPlayCount} 次)<br>🎉 目前總分：${backendNewTotal} 分。邁向下一抽還差 <span class="text-indigo-600 font-bold">${100 - (backendNewTotal % 100)} 分</span>！`;
                     
-                    // 延遲動畫，讓學生看完進度條填滿的爽快感，再翻轉為刮刮卡
                     setTimeout(() => {
                         const progUI = document.getElementById('progressUI');
                         const scratchUI = document.getElementById('scratchUI');
@@ -482,12 +784,11 @@ function submitToGoogleSheet() {
                             setTimeout(() => {
                                 progUI.classList.add('hidden');
                                 scratchUI.classList.remove('hidden');
-                                void scratchUI.offsetWidth; // 觸發重繪
+                                void scratchUI.offsetWidth; 
                                 scratchUI.classList.remove('opacity-0');
                                 rewardZone.classList.replace('border-indigo-100', 'border-amber-300');
                                 rewardZone.classList.replace('bg-white', 'bg-amber-50');
                                 
-                                // 顯示後台決定的獎勵
                                 let finalReward = data.reward && data.reward !== "無" ? data.reward : "再接再厲！";
                                 document.getElementById('rewardTextDisplay').textContent = finalReward;
                                 renderScratchCard();
@@ -568,4 +869,6 @@ window.onload = () => {
     if(savedClass) document.getElementById('className').value = savedClass;
     if(savedNum) document.getElementById('classNumber').value = savedNum;
     if(savedName) document.getElementById('studentName').value = savedName;
+    
+    setupCanvasEvents();
 };
