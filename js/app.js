@@ -1,16 +1,15 @@
 // js/app.js
 
+console.log("App.js V58 成功載入！已完美整合無提示跳過功能與精準手寫題數分配！");
+
 // ==========================================
-// 🚨 設定區
+// 🚨 老師設定區
 // ==========================================
-// 1. 儲存成績的 Google Apps Script 網址 (維持不變)
+// 你的 Google Apps Script 網址 
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw_h7rVev1VtAuPK4BFGR4i3lLMC2dGH_X6lkeB5IHZNHWPSBcQtFGNg0U9ZEteZMs/exec"; 
 
-// 2. 處理 AI 辨識的 Cloudflare Worker 網址 (請填入你的 Cloudflare Worker 網址)
-const CLOUDFLARE_WORKER_URL = "falling-field-afc7.chanchakw-csjss.workers.dev";
-
-// 🟢 開啟 AI 手寫功能
-const ENABLE_AI_HANDWRITING = false; 
+// 🟢 開啟 AI 手寫與鍵盤雙模輸入功能
+const ENABLE_AI_HANDWRITING = true; 
 
 const motivationalQuotes = [
     "未來的你，必定感激今天努力的自己。", "默默耕耘，總有收穫。", "答應自己，每天堅持多 1 分鐘。", "今天的累積，是明天的底氣。"
@@ -100,7 +99,6 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
     const currentUserClass = String(overrideClass || getStoredData('dse_className')).toUpperCase().trim();
     const currentUserNum = String(overrideNum || getStoredData('dse_classNumber')).trim();
 
-    let html = '';
     let userRank = -1;
     let userScore = 0;
     let userMatched = false;
@@ -115,6 +113,22 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
         }
     });
 
+    let html = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-2">';
+    globalLeaderboard.slice(0, 20).forEach((student, index) => {
+        let rankIcon = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `<span class="inline-block w-6 text-center text-slate-400 font-bold text-sm">${index + 1}.</span>`));
+        const isHighestMe = (String(student.className).toUpperCase().trim() === currentUserClass && String(student.classNum).trim() === currentUserNum) && (index + 1 === userRank);
+
+        const bgClass = isHighestMe ? 'bg-amber-100 border-amber-300 ring-2 ring-amber-200' : 'bg-white border-slate-100';
+        const textClass = isHighestMe ? 'text-amber-900' : 'text-slate-700';
+        const scoreClass = isHighestMe ? 'text-amber-700' : 'text-indigo-600';
+        
+        html += `<div class="flex justify-between items-center ${bgClass} p-4 rounded-xl border shadow-sm transition-all hover:shadow-md"><div class="flex items-center gap-3">${rankIcon}<span class="font-bold ${textClass} text-base">${student.className} (${student.classNum}) ${student.studentName}</span></div><div class="${scoreClass} font-bold text-lg">${student.totalScore} 分</div></div>`;
+    });
+    html += '</div>';
+
+    if (homeContainer) homeContainer.innerHTML = html;
+    
+    let endHtml = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-2">';
     globalLeaderboard.slice(0, 20).forEach((student, index) => {
         let rankIcon = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `<span class="inline-block w-6 text-center text-slate-400 font-bold text-sm">${index + 1}.</span>`));
         const isHighestMe = (String(student.className).toUpperCase().trim() === currentUserClass && String(student.classNum).trim() === currentUserNum) && (index + 1 === userRank);
@@ -122,20 +136,18 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
         const bgClass = isHighestMe ? 'bg-amber-100 border-amber-400 ring-2 ring-amber-300' : 'bg-white border-slate-100';
         const textClass = isHighestMe ? 'text-amber-800' : 'text-slate-700';
         const scoreClass = isHighestMe ? 'text-amber-700' : 'text-indigo-600';
-        const highlightBadge = isHighestMe ? `<span class="ml-2 text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full">你</span>` : '';
 
-        html += `<div class="flex justify-between items-center ${bgClass} p-3 rounded-lg border shadow-sm transition-all"><div class="flex items-center gap-2">${rankIcon}<span class="font-bold ${textClass}">${student.className} (${student.classNum}) ${student.studentName}${highlightBadge}</span></div><div class="${scoreClass} font-bold">${student.totalScore} 分</div></div>`;
+        endHtml += `<div class="flex justify-between items-center ${bgClass} p-3 rounded-xl border shadow-sm transition-all hover:shadow-md"><div class="flex items-center gap-2">${rankIcon}<span class="font-bold ${textClass} text-sm sm:text-base">${student.className} (${student.classNum}) ${student.studentName}</span></div><div class="${scoreClass} font-bold text-sm sm:text-base">${student.totalScore} 分</div></div>`;
     });
-
-    if (homeContainer) homeContainer.innerHTML = html;
-    if (endContainer) endContainer.innerHTML = html;
+    endHtml += '</div>';
+    if (endContainer) endContainer.innerHTML = endHtml;
 
     let myRankHtml = '';
     if (currentUserClass && currentUserNum) {
         if (userRank !== -1) {
-            myRankHtml = `<div class="bg-amber-100 border border-amber-400 p-3 rounded-lg flex justify-between items-center shadow-sm mb-4"><span class="font-bold text-amber-800">👉 你的目前排名：第 ${userRank} 名</span><span class="text-amber-700 font-bold">${userScore} 分</span></div>`;
+            myRankHtml = `<div class="bg-[#FFF3C4] border border-[#FDE68A] p-4 rounded-xl flex justify-between items-center shadow-sm mb-6"><span class="font-bold text-amber-800 text-base flex items-center gap-2"><span class="text-xl">👉</span> 你的目前排名：第 ${userRank} 名</span><span class="text-amber-800 font-bold text-lg">${userScore} 分</span></div>`;
         } else {
-            myRankHtml = `<div class="bg-slate-100 border border-slate-300 p-3 rounded-lg flex justify-between items-center shadow-sm mb-4"><span class="font-bold text-slate-600">👉 你的目前排名：未上榜</span><span class="text-slate-500 font-bold text-sm">繼續刷題累積積分吧！</span></div>`;
+            myRankHtml = `<div class="bg-slate-100 border border-slate-300 p-3 rounded-lg flex justify-between items-center shadow-sm mb-6"><span class="font-bold text-slate-600">👉 你的目前排名：未上榜</span><span class="text-slate-500 font-bold text-sm">繼續刷題累積積分吧！</span></div>`;
         }
     }
     if (myRankHome) myRankHome.innerHTML = myRankHtml;
@@ -145,44 +157,67 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
 function setQuestionNum(num) {
     totalQuestionsConfig = num;
     document.querySelectorAll('.num-btn').forEach(btn => {
-        btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-md');
-        btn.classList.add('bg-transparent', 'text-slate-600');
+        if (btn) {
+            btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-md');
+            btn.classList.add('bg-transparent', 'text-slate-600');
+        }
     });
     const activeBtn = document.getElementById('btn-num-' + num);
-    if (activeBtn) { activeBtn.classList.remove('bg-transparent', 'text-slate-600'); activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-md'); }
-    if (document.getElementById('displayQNum')) document.getElementById('displayQNum').textContent = num;
+    if (activeBtn) { 
+        activeBtn.classList.remove('bg-transparent', 'text-slate-600'); 
+        activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-md'); 
+    }
 }
 
 function showTopicScreen() {
-    document.getElementById('topicScreen').classList.remove('hidden');
-    document.getElementById('startScreen').classList.add('hidden');
-    document.getElementById('appContainer').classList.add('hidden');
-    document.getElementById('endScreen').classList.add('hidden');
+    document.getElementById('topicScreen')?.classList.remove('hidden');
+    document.getElementById('startScreen')?.classList.add('hidden');
+    document.getElementById('appContainer')?.classList.add('hidden');
+    document.getElementById('endScreen')?.classList.add('hidden');
 }
 
 function backToLevelSelection() {
-    document.getElementById('appContainer').classList.add('hidden');
-    document.getElementById('endScreen').classList.add('hidden');
+    document.getElementById('appContainer')?.classList.add('hidden');
+    document.getElementById('endScreen')?.classList.add('hidden');
     if (currentTopic === 'global_mixed') showTopicScreen(); else selectTopic(currentTopic);
 }
 
-function backToLevelSelectionFromQuiz() { document.getElementById('confirmModal').classList.remove('hidden'); }
-function closeConfirmModal() { document.getElementById('confirmModal').classList.add('hidden'); }
+window.restartLevel = function() {
+    startGame(currentLevelPref);
+};
+
+function backToLevelSelectionFromQuiz() { document.getElementById('confirmModal')?.classList.remove('hidden'); }
+function closeConfirmModal() { document.getElementById('confirmModal')?.classList.add('hidden'); }
 function confirmBackToLevelSelection() { closeConfirmModal(); backToLevelSelection(); }
+
+function assignQuestionScores() {
+    if (!questionBank) return;
+    questionBank.forEach(q => {
+        if (!q) return;
+        let lvlStr = q.level || "";
+        if (lvlStr.includes('4')) q.scoreVal = 15;
+        else if (lvlStr.includes('3')) q.scoreVal = 12;
+        else if (lvlStr.includes('2')) q.scoreVal = 8;
+        else if (lvlStr.includes('1')) q.scoreVal = 5;
+        else q.scoreVal = 10; 
+    });
+}
 
 function selectTopic(topic) {
     currentTopic = topic;
-    document.getElementById('topicScreen').classList.add('hidden');
-    document.getElementById('startScreen').classList.remove('hidden');
+    document.getElementById('topicScreen')?.classList.add('hidden');
+    document.getElementById('startScreen')?.classList.remove('hidden');
     
     ['btnL1', 'btnL2', 'btnL3', 'btnL4', 'btnL2A', 'btnL2B', 'btnL3A', 'btnL3B'].forEach(id => {
-        if (document.getElementById(id)) document.getElementById(id).classList.add('hidden');
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
     });
 
     let config = fallbackConfigs[topic];
     if (!config) return;
     currentTopicName = config.name;
-    document.getElementById('levelTitle').textContent = config.name + ' - 請選擇難度';
+    const lTitle = document.getElementById('levelTitle');
+    if (lTitle) lTitle.textContent = config.name + ' - 請選擇難度';
 
     config.levels.forEach(lvl => {
         let title = lvl.title, badge = lvl.badge, desc = lvl.desc;
@@ -196,23 +231,33 @@ function selectTopic(topic) {
             }
         }
         
+        let scoreVal = 5;
+        if (lvl.id.includes('2')) scoreVal = 8;
+        if (lvl.id.includes('3')) scoreVal = 12;
+        if (lvl.id.includes('4')) scoreVal = 15;
+
         const btn = document.getElementById('btn' + lvl.id.toUpperCase());
         if (btn) {
             btn.classList.remove('hidden');
             let colorClass = lvl.id.includes('1') ? 'bg-green-100 text-green-700' : (lvl.id.includes('2') ? 'bg-blue-100 text-blue-700' : (lvl.id.includes('3') ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'));
-            btn.querySelector('.font-bold').innerHTML = title + `<div class="mt-1"><span class="inline-block px-2 py-0.5 ${colorClass} text-xs rounded-md font-bold">${badge}</span></div>`;
-            btn.lastElementChild.innerHTML = desc;
+            
+            let btnFont = btn.querySelector('.font-bold');
+            if(btnFont) btnFont.innerHTML = title + `<div class="mt-1"><span class="inline-block px-2 py-0.5 ${colorClass} text-xs rounded-md font-bold">${badge}</span></div>`;
+            
+            if(btn.lastElementChild) btn.lastElementChild.innerHTML = desc + `<div class="mt-3 text-indigo-600 font-bold text-sm bg-indigo-50 inline-block px-3 py-1 rounded-full shadow-sm border border-indigo-100">🎯 答對得 ${scoreVal} 分</div>`;
         }
     });
 }
 
 function assignHandwriting(bank) {
-    if (!ENABLE_AI_HANDWRITING) return; 
+    if (!ENABLE_AI_HANDWRITING || !bank) return; 
     let hwCount = 0;
+    
+    // 🌟 精準分配手寫題數
     if (bank.length === 3) hwCount = 1;
     else if (bank.length === 5) hwCount = 2;
-    else if (bank.length === 10) hwCount = 5;
-    else if (bank.length > 0) hwCount = Math.floor(bank.length / 2);
+    else if (bank.length === 10) hwCount = 3;
+    else if (bank.length > 0) hwCount = Math.floor(bank.length / 3);
 
     let indices = Array.from({length: bank.length}, (_, i) => i);
     indices = shuffleArray(indices).slice(0, hwCount);
@@ -227,38 +272,66 @@ function startGlobalMixed(level) {
         currentTopic = 'global_mixed';
         currentTopicName = '跨課題綜合挑戰';
         currentLevelPref = level;
-        document.getElementById('questionInstruction').classList.add('hidden');
 
         let topicsList = ['indices', 'factorization', 'rounding', 'identities', 'fractions', 'binary', 'expansion', 'alg_frac_mul_div', 'triangle_area'];
-        let numQ = Math.max(totalQuestionsConfig, topicsList.length);
-        let selectedTopics = [...topicsList];
-        while (selectedTopics.length < numQ) selectedTopics.push(topicsList[Math.floor(Math.random() * topicsList.length)]);
+        
+        let numQ = totalQuestionsConfig;
+        let selectedTopics = [];
+        
+        while (selectedTopics.length < numQ) {
+            selectedTopics.push(topicsList[Math.floor(Math.random() * topicsList.length)]);
+        }
         selectedTopics = shuffleArray(selectedTopics);
 
         questionBank = [];
         selectedTopics.forEach((t, idx) => {
             let qArr = [];
             let lvl = String(level);
-            let supportedIds = fallbackConfigs[t].levels.map(l => l.id);
-            let maxSupported = supportedIds.some(id => id.includes('4')) ? 4 : (supportedIds.some(id => id.includes('3')) ? 3 : 2);
-            if (parseInt(lvl) > maxSupported) lvl = String(maxSupported);
             
-            if (t === 'indices') qArr = generateIndicesQuestions(1, lvl);
-            else if (t === 'factorization') qArr = generateFactorizationQuestions(1, lvl);
-            else if (t === 'rounding') qArr = generateRoundingQuestions(1, lvl);
-            else if (t === 'identities') qArr = generateIdentitiesQuestions(1, lvl);
-            else if (t === 'fractions') qArr = generateFractionsQuestions(1, lvl);
-            else if (t === 'binary') qArr = generateBinaryQuestions(1, lvl);
-            else if (t === 'expansion') qArr = generateExpansionQuestions(1, lvl);
-            else if (t === 'alg_frac_mul_div') qArr = generateAlgFracMulDivQuestions(1, lvl);
-            else if (t === 'triangle_area') qArr = generateTriangleAreaQuestions(1, lvl);
+            let supportedIds = fallbackConfigs[t].levels.map(l => l.id.toLowerCase());
+            let maxSupported = supportedIds.some(id => id.includes('4')) ? 4 : (supportedIds.some(id => id.includes('3')) ? 3 : 2);
+            
+            if (lvl !== 'mixed' && parseInt(lvl) > maxSupported) lvl = String(maxSupported);
+            
+            try {
+                if (t === 'indices') qArr = generateIndicesQuestions(1, lvl);
+                else if (t === 'factorization') {
+                    let fLvl = lvl;
+                    if (lvl === '2') fLvl = Math.random() > 0.5 ? '2a' : '2b';
+                    else if (lvl === '3' || lvl === '4') fLvl = Math.random() > 0.5 ? '3a' : '3b';
+                    else if (lvl === 'mixed') fLvl = 'mixed';
+                    qArr = generateFactorizationQuestions(1, fLvl);
+                }
+                else if (t === 'rounding') qArr = generateRoundingQuestions(1, lvl);
+                else if (t === 'identities') qArr = generateIdentitiesQuestions(1, lvl);
+                else if (t === 'fractions') qArr = generateFractionsQuestions(1, lvl);
+                else if (t === 'binary') qArr = generateBinaryQuestions(1, lvl);
+                else if (t === 'expansion') qArr = generateExpansionQuestions(1, lvl);
+                else if (t === 'alg_frac_mul_div') qArr = generateAlgFracMulDivQuestions(1, lvl);
+                else if (t === 'triangle_area') qArr = generateTriangleAreaQuestions(1, lvl);
+            } catch(e) {
+                console.error(`Error generating ${t}:`, e);
+            }
 
-            if (qArr && qArr.length > 0) { qArr[0].id = idx + 1; questionBank.push(qArr[0]); }
+            if (qArr && qArr.length > 0 && qArr[0]) { 
+                qArr[0].id = idx + 1; 
+                if (level !== 'mixed') qArr[0].level = `程度 ${level}`;
+                questionBank.push(qArr[0]); 
+            } else {
+                qArr = generateIndicesQuestions(1, "1");
+                if (qArr && qArr.length > 0 && qArr[0]) {
+                    qArr[0].id = idx + 1;
+                    qArr[0].topic = fallbackConfigs[t]?.name + " (替代)" || "替代題目";
+                    if (level !== 'mixed') qArr[0].level = `程度 ${level}`;
+                    questionBank.push(qArr[0]);
+                }
+            }
         });
 
+        assignQuestionScores();
         assignHandwriting(questionBank);
         startQuizSession();
-    } catch (error) { alert("🚨 系統錯誤！無法讀取跨課題題庫。\n原因：" + error.message); }
+    } catch (error) { alert(`🚨 系統錯誤！無法讀取跨課題題庫。\n原因：${error.message}`); }
 }
 
 function startGame(levelPref) {
@@ -266,7 +339,6 @@ function startGame(levelPref) {
         if (currentTopic === 'global_mixed') return startGlobalMixed(levelPref);
 
         currentLevelPref = levelPref;
-        document.getElementById('questionInstruction').classList.add('hidden');
         
         if (currentTopic === 'indices') questionBank = generateIndicesQuestions(totalQuestionsConfig, currentLevelPref); 
         else if (currentTopic === 'factorization') questionBank = generateFactorizationQuestions(totalQuestionsConfig, currentLevelPref); 
@@ -278,100 +350,212 @@ function startGame(levelPref) {
         else if (currentTopic === 'alg_frac_mul_div') questionBank = generateAlgFracMulDivQuestions(totalQuestionsConfig, currentLevelPref);
         else if (currentTopic === 'triangle_area') questionBank = generateTriangleAreaQuestions(totalQuestionsConfig, currentLevelPref);
         
+        assignQuestionScores();
         assignHandwriting(questionBank);
         startQuizSession();
-    } catch (error) { alert("🚨 系統錯誤！無法讀取題庫。\n原因：" + error.message); }
+    } catch (error) { alert(`🚨 系統錯誤！無法讀取題庫。\n原因：${error.message}`); }
 }
 
 function startQuizSession() {
     currentQuestionIndex = 0; score = 0; updateScoreDisplay();
-    document.getElementById('topicScreen').classList.add('hidden');
-    document.getElementById('startScreen').classList.add('hidden');
-    document.getElementById('endScreen').classList.add('hidden'); 
-    document.getElementById('appContainer').classList.remove('hidden');
+    document.getElementById('topicScreen')?.classList.add('hidden');
+    document.getElementById('startScreen')?.classList.add('hidden');
+    document.getElementById('endScreen')?.classList.add('hidden'); 
+    document.getElementById('appContainer')?.classList.remove('hidden');
     
     const btn = document.getElementById('submitRecordBtn');
-    btn.disabled = false; btn.textContent = "傳送成績";
-    btn.classList.remove('bg-slate-400'); btn.classList.add('bg-green-600');
-    document.getElementById('submitStatus').classList.add('hidden');
+    if (btn) {
+        btn.disabled = false; btn.textContent = "傳送成績";
+        btn.classList.replace('bg-slate-400', 'bg-[#44994d]');
+    }
+    document.getElementById('submitStatus')?.classList.add('hidden');
 
     loadQuestion();
 }
+
+window.switchInputMode = function(mode) {
+    const drawZone = document.getElementById('draw-input-zone');
+    const kbZone = document.getElementById('keyboard-input-zone');
+    const tabDraw = document.getElementById('tab-draw');
+    const tabKb = document.getElementById('tab-keyboard');
+    
+    if (mode === 'draw') {
+        drawZone?.classList.remove('hidden');
+        kbZone?.classList.add('hidden');
+        if (tabDraw) tabDraw.className = "flex-1 py-2 text-sm font-bold rounded-md bg-white text-indigo-600 shadow-sm transition-all";
+        if (tabKb) tabKb.className = "flex-1 py-2 text-sm font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all";
+        setTimeout(() => { resizeCanvas(); }, 50); 
+    } else {
+        drawZone?.classList.add('hidden');
+        kbZone?.classList.remove('hidden');
+        if (tabKb) tabKb.className = "flex-1 py-2 text-sm font-bold rounded-md bg-white text-indigo-600 shadow-sm transition-all";
+        if (tabDraw) tabDraw.className = "flex-1 py-2 text-sm font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all";
+    }
+};
+
+// 🌟 修正：移除彈窗與解答提示，直接給 0 分並進入下一題狀態
+window.skipQuestion = function() {
+    let q = questionBank[currentQuestionIndex];
+    if(!q) return;
+    
+    attemptsCount = 2; // 強制標記為已失敗兩次
+    
+    // 🌟 直接顯示跳過訊息，不再顯示解答與解析
+    showFeedback('incorrect', `<div class="mb-4 text-orange-600 font-bold text-lg sm:text-xl bg-orange-50 p-3 rounded-lg border border-orange-200 shadow-sm">⏭️ 你已選擇跳過本題 (獲得 0 分)</div>`, true); 
+    
+    disableAllButtons();
+    
+    // 停用所有跳過按鈕
+    const skipBtns = document.querySelectorAll('.skip-action-btn');
+    skipBtns.forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+    });
+
+    if (q.isHandwriting) {
+        ['clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.disabled = true;
+        });
+        document.getElementById('draw-container')?.classList.add('border-slate-300');
+        document.getElementById('kb-container')?.classList.add('border-slate-300');
+    }
+};
 
 function loadQuestion() {
     attemptsCount = 0; 
     currentRecognizedLaTeX = ""; 
     
     const q = questionBank[currentQuestionIndex];
-    document.getElementById('topicBadge').textContent = q.topic;
-    document.getElementById('levelBadge').innerHTML = currentTopic === 'global_mixed' ? `綜合挑戰 (難度: ${currentLevelPref})` : `難度: ${q.level}`;
-    document.getElementById('progressText').textContent = `完成 ${currentQuestionIndex}/${questionBank.length}`;
+    if(!q) return;
+    
+    const tBadge = document.getElementById('topicBadge');
+    if (tBadge) tBadge.textContent = q.topic;
+    
+    const lBadge = document.getElementById('levelBadge');
+    if (lBadge) lBadge.innerHTML = currentTopic === 'global_mixed' ? `綜合挑戰 (難度: ${currentLevelPref})` : `難度: ${q.level}`;
+    
+    const pText = document.getElementById('progressText');
+    if (pText) pText.textContent = `完成 ${currentQuestionIndex}/${questionBank.length}`;
+    
     hideFeedback();
     
-    if (document.getElementById('hw-confirm-ui')) {
-        document.getElementById('hw-confirm-ui').classList.add('hidden');
-    }
+    // 🌟 啟用所有的跳過按鈕
+    const skipBtns = document.querySelectorAll('.skip-action-btn');
+    skipBtns.forEach(btn => {
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+    });
     
-    let typeLabel = q.isHandwriting ? `<span class="inline-block bg-amber-100 text-amber-700 px-3 py-1 rounded-md text-sm font-bold align-middle mt-2 sm:mt-0 shadow-sm border border-amber-200">✍️ AI 手寫題</span>` : "";
-    document.getElementById('questionText').innerHTML = q.question + `<div class="mt-2 text-center">${typeLabel}</div>`;
+    document.getElementById('hw-confirm-ui')?.classList.add('hidden');
+    
+    let typeLabel = q.isHandwriting ? `<span class="inline-block bg-amber-100 text-amber-700 px-3 py-1 rounded-md text-sm font-bold align-middle mt-2 sm:mt-0 shadow-sm border border-amber-200">🤖 AI 輔助作答</span>` : "";
+    const qText = document.getElementById('questionText');
+    if (qText) qText.innerHTML = q.question + `<div class="mt-2 text-center">${typeLabel}</div>`;
 
     const optionsGrid = document.getElementById('optionsGrid');
     const hwArea = document.getElementById('handwritingArea');
+    const skipBtnMC = document.getElementById('skip-btn-mc'); // 🌟 取得選擇題專屬跳過按鈕
     
     if (q.isHandwriting) {
-        optionsGrid.classList.add('hidden');
+        optionsGrid?.classList.add('hidden');
+        skipBtnMC?.classList.add('hidden'); // 隱藏選擇題跳過按鈕
+        
         if (hwArea) {
             hwArea.classList.remove('hidden');
-            hwArea.classList.remove('border-4', 'border-green-500', 'border-red-400');
-            document.getElementById('clear-btn').disabled = false;
-            document.getElementById('recognize-btn').disabled = false;
+            
+            document.getElementById('draw-container')?.classList.remove('border-green-500', 'border-red-400');
+            document.getElementById('kb-container')?.classList.remove('border-green-500', 'border-red-400');
+            
+            ['clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = false;
+            });
+            
+            const kbInput = document.getElementById('keyboard-math-input');
+            if (kbInput) kbInput.value = ""; 
+
+            switchInputMode('draw');
             setTimeout(() => { resizeCanvas(); initCanvas(); }, 50);
         }
     } else {
-        optionsGrid.classList.remove('hidden');
+        optionsGrid?.classList.remove('hidden');
+        skipBtnMC?.classList.remove('hidden'); // 顯示選擇題跳過按鈕
+        
         if (hwArea) hwArea.classList.add('hidden');
-        optionsGrid.innerHTML = ''; 
-        q.options.forEach(opt => {
-            const btn = document.createElement('button');
-            btn.className = 'option-btn relative p-3 sm:p-4 bg-white border-2 border-slate-200 rounded-xl text-base sm:text-lg text-slate-700 font-medium hover:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100 flex items-center gap-3 text-left w-full overflow-hidden';
-            btn.onclick = () => handleAnswer(opt, btn);
-            btn.innerHTML = `<span class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0">${opt.id}</span><span class="overflow-x-auto math-scroll max-w-full flex-1 py-1">${opt.text}</span>`;
-            optionsGrid.appendChild(btn);
-        });
+        if (optionsGrid) {
+            optionsGrid.innerHTML = ''; 
+            if(q.options) {
+                q.options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = 'option-btn relative p-3 sm:p-4 bg-white border-2 border-slate-200 rounded-xl text-base sm:text-lg text-slate-700 font-medium hover:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100 flex items-center gap-3 text-left w-full overflow-hidden';
+                    btn.onclick = () => handleAnswer(opt, btn);
+                    btn.innerHTML = `<span class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0">${opt.id}</span><span class="overflow-x-auto math-scroll max-w-full flex-1 py-1">${opt.text}</span>`;
+                    optionsGrid.appendChild(btn);
+                });
+            }
+        }
     }
     renderMath();
 }
 
 function handleAnswer(selectedOption, buttonElement) {
     attemptsCount++;
+    
+    // 🌟 作答後停用所有的跳過按鈕
+    const skipBtns = document.querySelectorAll('.skip-action-btn');
+    skipBtns.forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+    });
+
     if (selectedOption.isCorrect) {
-        buttonElement.classList.add('border-green-500', 'bg-green-50');
-        buttonElement.querySelector('span').classList.replace('bg-slate-100', 'bg-green-500');
-        buttonElement.querySelector('span').classList.replace('text-slate-500', 'text-white');
-        if (attemptsCount === 1) { score += 10; updateScoreDisplay(); }
+        if(buttonElement) {
+            buttonElement.classList.add('border-green-500', 'bg-green-50');
+            const spanEl = buttonElement.querySelector('span');
+            if (spanEl) {
+                spanEl.classList.replace('bg-slate-100', 'bg-green-500');
+                spanEl.classList.replace('text-slate-500', 'text-white');
+            }
+        }
+        
+        if (attemptsCount === 1) { 
+            let q = questionBank[currentQuestionIndex];
+            score += (q.scoreVal || 10); 
+            updateScoreDisplay(); 
+        }
+        
         showFeedback('correct', selectedOption.hint, true);
         disableAllButtons();
     } else {
-        buttonElement.classList.add('border-red-300', 'bg-red-50');
-        buttonElement.disabled = true;
+        if(buttonElement) {
+            buttonElement.classList.add('border-red-300', 'bg-red-50');
+            buttonElement.disabled = true;
+        }
         showFeedback('incorrect', selectedOption.hint, false);
     }
 }
 
 function showFeedback(type, message, showNextBtn) {
-    const fbArea = document.getElementById('feedbackArea');
+    document.getElementById('feedbackArea')?.classList.remove('hidden');
     const fbBox = document.getElementById('feedbackBox');
-    fbArea.classList.remove('hidden');
-    fbBox.className = type === 'correct' ? 'p-4 rounded-xl border bg-green-50 border-green-200 w-full overflow-hidden shadow-sm' : 'p-4 rounded-xl border bg-orange-50 border-orange-200 w-full overflow-hidden shadow-sm';
-    document.getElementById('feedbackMessage').innerHTML = message;
+    if (fbBox) {
+        fbBox.className = type === 'correct' ? 'p-4 rounded-xl border bg-green-50 border-green-200 w-full overflow-hidden shadow-sm' : 'p-4 rounded-xl border bg-orange-50 border-orange-200 w-full overflow-hidden shadow-sm';
+    }
+    
+    const fbMsg = document.getElementById('feedbackMessage');
+    if (fbMsg) fbMsg.innerHTML = message;
     
     const nextBtn = document.getElementById('nextBtn');
-    if (showNextBtn) { nextBtn.classList.remove('hidden'); nextBtn.onclick = goToNext; } else { nextBtn.classList.add('hidden'); }
+    if (nextBtn) {
+        if (showNextBtn) { nextBtn.classList.remove('hidden'); nextBtn.onclick = goToNext; } 
+        else { nextBtn.classList.add('hidden'); }
+    }
     renderMath();
 }
 
-function hideFeedback() { document.getElementById('feedbackArea').classList.add('hidden'); }
-function disableAllButtons() { document.querySelectorAll('.option-btn').forEach(btn => { if (!btn.classList.contains('border-green-500')) btn.disabled = true; }); }
+function hideFeedback() { document.getElementById('feedbackArea')?.classList.add('hidden'); }
+function disableAllButtons() { document.querySelectorAll('.option-btn').forEach(btn => { if (btn && !btn.classList.contains('border-green-500')) btn.disabled = true; }); }
 function goToNext() { currentQuestionIndex++; if (currentQuestionIndex < questionBank.length) loadQuestion(); else showEndScreen(); }
 
 // ==========================================
@@ -428,32 +612,24 @@ function setupCanvasEvents() {
     canvas.addEventListener('mousedown', startDrawing); canvas.addEventListener('mousemove', draw); canvas.addEventListener('mouseup', stopDrawing); canvas.addEventListener('mouseout', stopDrawing);
     canvas.addEventListener('touchstart', startDrawing, { passive: false }); canvas.addEventListener('touchmove', draw, { passive: false }); canvas.addEventListener('touchend', stopDrawing); canvas.addEventListener('touchcancel', stopDrawing);
     
-    document.getElementById('clear-btn').addEventListener('click', () => { initCanvas(); document.getElementById('handwritingArea').classList.remove('border-4', 'border-green-500', 'border-red-400'); });
-    document.getElementById('recognize-btn').addEventListener('click', startRecognitionPhase);
+    document.getElementById('clear-btn')?.addEventListener('click', () => { 
+        initCanvas(); 
+        document.getElementById('draw-container')?.classList.remove('border-green-500', 'border-red-400');
+    });
+    document.getElementById('recognize-btn')?.addEventListener('click', startRecognitionPhase);
+    
+    document.getElementById('kb-clear-btn')?.addEventListener('click', () => {
+        const kbInput = document.getElementById('keyboard-math-input');
+        if (kbInput) kbInput.value = "";
+        document.getElementById('kb-container')?.classList.remove('border-green-500', 'border-red-400');
+    });
+    document.getElementById('kb-recognize-btn')?.addEventListener('click', startKeyboardRecognitionPhase);
+
     window.addEventListener('resize', resizeCanvas);
-    
-    const hwArea = document.getElementById('handwritingArea');
-    const canvasContainer = hwArea.querySelector('.relative'); 
-    
-    if (!document.getElementById('hw-confirm-ui')) {
-        const confirmUI = document.createElement('div');
-        confirmUI.id = 'hw-confirm-ui';
-        confirmUI.className = 'hidden absolute inset-0 bg-white/95 z-20 flex flex-col items-center justify-center p-4 backdrop-blur-sm transition-all';
-        confirmUI.innerHTML = `
-            <h3 class="text-lg sm:text-xl font-bold text-indigo-700 mb-2">🤖 步驟一：數式轉換確認</h3>
-            <div id="hw-confirm-math" class="text-xl sm:text-2xl overflow-x-auto math-scroll py-4 px-2 w-full bg-white rounded-lg border-2 border-indigo-200 mb-4 min-h-[80px] flex items-center justify-center shadow-inner text-slate-800"></div>
-            <p class="text-sm sm:text-base text-slate-600 font-bold mb-4 text-center">請確認以上數式是否與你的手寫內容相符？<br><span class="text-xs text-slate-500 font-normal">確認無誤後，才會交由 AI 老師進行邏輯批改。</span></p>
-            <div class="flex gap-3 w-full max-w-sm">
-                <button onclick="rewriteHandwriting()" class="flex-1 py-3 bg-slate-100 text-slate-700 border border-slate-300 font-bold rounded-xl hover:bg-slate-200 transition-colors shadow-sm text-sm sm:text-base">❌ 重新手寫</button>
-                <button onclick="confirmAndGrade()" class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-md text-sm sm:text-base">✅ 確認並批改</button>
-            </div>
-        `;
-        canvasContainer.appendChild(confirmUI);
-    }
 }
 
 // ==========================================
-// 🤖 全新連線架構：使用 Cloudflare Worker 呼叫 AI
+// 🤖 全新連線架構：使用 Google Apps Script (美國伺服器)
 // ==========================================
 async function fetchWithRetry(url, options, maxRetries = 3) {
     let delays = [1000, 2000, 4000];
@@ -469,13 +645,11 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
     }
 }
 
+// 🌟 處理「手寫圖片」上傳
 async function startRecognitionPhase() {
-    if (!CLOUDFLARE_WORKER_URL || CLOUDFLARE_WORKER_URL.includes("請在此貼上")) {
-        alert("⚠️ 尚未設定 Cloudflare Worker 網址，請先至 js/app.js 填寫！");
-        return;
-    }
-
     const canvas = document.getElementById('draw-canvas');
+    if (!canvas) return;
+
     const MAX_WIDTH = 800; 
     let scale = 1;
     if (canvas.width > MAX_WIDTH) scale = MAX_WIDTH / canvas.width;
@@ -492,56 +666,142 @@ async function startRecognitionPhase() {
     const dataURL = tempCanvas.toDataURL('image/jpeg', 0.8);
     const base64Image = dataURL.split(',')[1];
     
-    const loadingDiv = document.getElementById('ai-loading');
-    loadingDiv.querySelector('p').innerHTML = "AI 正在將你的手寫筆跡轉換為數式...<br><span class='text-sm font-normal text-slate-500'>透過跨國安全通道處理中</span>";
-    loadingDiv.classList.remove('hidden');
+    const loadingDiv = document.getElementById('global-loading');
+    const loadingText = document.getElementById('global-loading-text');
+    if (loadingText) loadingText.innerHTML = "AI 正在將你的手寫筆跡轉換為數式...<br><span class='text-sm font-normal text-slate-500'>傳送至 Google 雲端處理中</span>";
+    if (loadingDiv) loadingDiv.classList.remove('hidden');
     
-    document.getElementById('recognize-btn').disabled = true;
-    document.getElementById('clear-btn').disabled = true;
-    document.getElementById('handwritingArea').classList.remove('border-4', 'border-green-500', 'border-red-400');
+    const recBtn = document.getElementById('recognize-btn');
+    if (recBtn) recBtn.disabled = true;
+    const clrBtn = document.getElementById('clear-btn');
+    if (clrBtn) clrBtn.disabled = true;
+    document.getElementById('draw-container')?.classList.remove('border-green-500', 'border-red-400');
     
     try {
-        // 直接向 Cloudflare 發送 JSON
-        const payload = { action: 'ai_ocr', image: base64Image };
-        const result = await fetchWithRetry(CLOUDFLARE_WORKER_URL, { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload) 
-        });
-        
+        const formData = new URLSearchParams();
+        formData.append('action', 'ai_ocr');
+        formData.append('image', base64Image);
+
+        const result = await fetchWithRetry(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
         if (!result.success) throw new Error(result.message);
+
+        if (result.latex === undefined) {
+            throw new Error("後台未回傳數式！請確認您的 Google Apps Script 已部署了最新代碼，並且部署時有選擇「建立新版本」。");
+        }
         
         currentRecognizedLaTeX = result.latex;
-        loadingDiv.classList.add('hidden');
+        if (loadingDiv) loadingDiv.classList.add('hidden');
         
         const confirmUI = document.getElementById('hw-confirm-ui');
         const mathDiv = document.getElementById('hw-confirm-math');
-        mathDiv.innerHTML = `\\( \\displaystyle ${currentRecognizedLaTeX} \\)`;
-        confirmUI.classList.remove('hidden');
+
+        let existingWarning = document.getElementById('model-warning-ocr');
+        if (existingWarning) existingWarning.remove();
+
+        if (result.usedModel && result.usedModel !== "gemini-2.5-pro") {
+            const debugText = result.debugInfo ? `<br><span class="text-xs font-normal text-red-500 text-left block mt-1">🔍 偵錯紀錄: ${result.debugInfo}</span>` : "";
+            const warningHtml = `<div id="model-warning-ocr" class="w-full max-w-sm bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg mb-3 text-sm font-bold shadow-sm">⚠️ 注意：Gemini 2.5 Pro 呼叫失敗，已降級使用「${result.usedModel}」。${debugText}</div>`;
+            if (mathDiv) mathDiv.insertAdjacentHTML('beforebegin', warningHtml);
+        }
+
+        if (mathDiv) mathDiv.innerHTML = `\\( \\displaystyle ${currentRecognizedLaTeX} \\)`;
+        if (confirmUI) confirmUI.classList.remove('hidden');
         renderMath();
         
     } catch (err) {
         console.error(err);
-        alert(`⚠️ 辨識失敗！\n\n詳細錯誤：${err.message}\n\n請檢查 Cloudflare 狀態。`);
-        loadingDiv.classList.add('hidden');
-        document.getElementById('recognize-btn').disabled = false;
-        document.getElementById('clear-btn').disabled = false;
+        alert(`⚠️ 辨識失敗！\n\n詳細錯誤：${err.message}`);
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+        if (recBtn) recBtn.disabled = false;
+        if (clrBtn) clrBtn.disabled = false;
+    }
+}
+
+// 🌟 處理「鍵盤文字」上傳
+async function startKeyboardRecognitionPhase() {
+    const kbInputElement = document.getElementById('keyboard-math-input');
+    if (!kbInputElement) return;
+    const kbInput = kbInputElement.value.trim();
+    if (!kbInput) {
+        alert("請先輸入數學算式！");
+        return;
+    }
+    
+    const loadingDiv = document.getElementById('global-loading');
+    const loadingText = document.getElementById('global-loading-text');
+    if (loadingText) loadingText.innerHTML = "AI 正在將文字轉換為標準數式...<br><span class='text-sm font-normal text-slate-500'>傳送至 Google 雲端處理中</span>";
+    if (loadingDiv) loadingDiv.classList.remove('hidden');
+    
+    const kbRecBtn = document.getElementById('kb-recognize-btn');
+    if (kbRecBtn) kbRecBtn.disabled = true;
+    const kbClrBtn = document.getElementById('kb-clear-btn');
+    if (kbClrBtn) kbClrBtn.disabled = true;
+    document.getElementById('kb-container')?.classList.remove('border-green-500', 'border-red-400');
+    
+    try {
+        const formData = new URLSearchParams();
+        formData.append('action', 'ai_text_to_latex');
+        formData.append('text', kbInput);
+
+        const result = await fetchWithRetry(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
+        if (!result.success) throw new Error(result.message);
+
+        if (!result.latex || String(result.latex).trim() === "undefined") {
+            throw new Error("系統無法識別該數式。請確保輸入了正確的數學符號，或檢查 Google Apps Script 後台是否已更新。");
+        }
+        
+        currentRecognizedLaTeX = result.latex;
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+        
+        const confirmUI = document.getElementById('hw-confirm-ui');
+        const mathDiv = document.getElementById('hw-confirm-math');
+
+        let existingWarning = document.getElementById('model-warning-ocr');
+        if (existingWarning) existingWarning.remove();
+
+        if (result.usedModel && result.usedModel !== "gemini-2.5-pro") {
+            const debugText = result.debugInfo ? `<br><span class="text-xs font-normal text-red-500 text-left block mt-1">🔍 偵錯紀錄: ${result.debugInfo}</span>` : "";
+            const warningHtml = `<div id="model-warning-ocr" class="w-full max-w-sm bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg mb-3 text-sm font-bold shadow-sm">⚠️ 注意：Gemini 2.5 Pro 呼叫失敗，已降級使用「${result.usedModel}」。${debugText}</div>`;
+            if (mathDiv) mathDiv.insertAdjacentHTML('beforebegin', warningHtml);
+        }
+
+        if (mathDiv) mathDiv.innerHTML = `\\( \\displaystyle ${currentRecognizedLaTeX} \\)`;
+        if (confirmUI) confirmUI.classList.remove('hidden');
+        renderMath();
+        
+    } catch (err) {
+        console.error(err);
+        alert(`⚠️ 轉換失敗！\n\n詳細錯誤：${err.message}`);
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+        if (kbRecBtn) kbRecBtn.disabled = false;
+        if (kbClrBtn) kbClrBtn.disabled = false;
     }
 }
 
 window.rewriteHandwriting = function() {
-    document.getElementById('hw-confirm-ui').classList.add('hidden');
+    document.getElementById('hw-confirm-ui')?.classList.add('hidden');
     initCanvas(); 
-    document.getElementById('recognize-btn').disabled = false;
-    document.getElementById('clear-btn').disabled = false;
+    const btns = ['recognize-btn', 'clear-btn', 'kb-recognize-btn', 'kb-clear-btn'];
+    btns.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = false;
+    });
 };
 
 window.confirmAndGrade = async function() {
-    document.getElementById('hw-confirm-ui').classList.add('hidden');
+    document.getElementById('hw-confirm-ui')?.classList.add('hidden');
     
-    const loadingDiv = document.getElementById('ai-loading');
-    loadingDiv.querySelector('p').innerHTML = "AI 老師正在進行邏輯批改...<br><span class='text-sm font-normal text-slate-500'>比對等價性中</span>";
-    loadingDiv.classList.remove('hidden');
+    // 🌟 確認批改後停用所有的跳過按鈕
+    const skipBtns = document.querySelectorAll('.skip-action-btn');
+    skipBtns.forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+    });
+    
+    const loadingDiv = document.getElementById('global-loading');
+    const loadingText = document.getElementById('global-loading-text');
+    if (loadingText) loadingText.innerHTML = "AI 老師正在進行邏輯批改...<br><span class='text-sm font-normal text-slate-500'>比對等價性中</span>";
+    if (loadingDiv) loadingDiv.classList.remove('hidden');
 
     try {
         let q = questionBank[currentQuestionIndex];
@@ -551,48 +811,62 @@ window.confirmAndGrade = async function() {
         tempDiv.innerHTML = correctOpt.text;
         let standardAns = tempDiv.textContent || tempDiv.innerText;
         
-        // 直接向 Cloudflare 發送 JSON
-        const payload = { action: 'ai_grade', studentLatex: currentRecognizedLaTeX, standardAns: standardAns };
-        const result = await fetchWithRetry(CLOUDFLARE_WORKER_URL, { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload) 
-        });
-        
+        const formData = new URLSearchParams(); 
+        formData.append('action', 'ai_grade');
+        formData.append('studentLatex', currentRecognizedLaTeX);
+        formData.append('standardAns', standardAns);
+
+        const result = await fetchWithRetry(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
         if (!result.success) throw new Error(result.message);
         
-        loadingDiv.classList.add('hidden');
+        if (loadingDiv) loadingDiv.classList.add('hidden');
         attemptsCount++;
         
+        let warningHtml = "";
+        if (result.usedModel && result.usedModel !== "gemini-2.5-pro") {
+            const debugText = result.debugInfo ? `<br><span class="text-xs font-normal text-red-500 mt-1 block text-left">🔍 偵錯紀錄: ${result.debugInfo}</span>` : "";
+            warningHtml = `<div class="mt-3 text-red-700 font-bold border-t border-red-200 pt-3 bg-red-50 p-3 rounded-lg shadow-inner text-sm text-center">⚠️ 批改降級警告：Gemini 2.5 Pro 呼叫失敗，已降級使用「${result.usedModel}」。${debugText}</div>`;
+        }
+
         let feedbackHtml = `<div class="mb-3 p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-slate-800 shadow-sm">
             <div class="font-bold text-indigo-700 mb-2">🤖 你的作答 (AI 辨識)：</div>
-            <div class="text-xl overflow-x-auto math-scroll py-2 bg-white rounded-lg border border-white text-center">\\( \\displaystyle ${currentRecognizedLaTeX} \\)</div>
+            <div class="text-xl sm:text-2xl font-bold text-indigo-700 overflow-x-auto math-scroll py-4 bg-white rounded-lg border border-white text-center whitespace-nowrap shadow-inner">\\( \\displaystyle ${currentRecognizedLaTeX} \\)</div>
             ${result.reason ? `<div class="mt-3 text-red-600 font-bold border-t border-indigo-100 pt-2">💡 老師點評：${result.reason}</div>` : ''}
+            ${warningHtml}
         </div>`;
         
         let finalHint = feedbackHtml + correctOpt.hint;
 
         if (result.isCorrect) {
-            if (attemptsCount === 1) { score += 10; updateScoreDisplay(); }
+            if (attemptsCount === 1) { 
+                score += (q.scoreVal || 10); 
+                updateScoreDisplay(); 
+            }
             showFeedback('correct', finalHint, true);
-            document.getElementById('handwritingArea').classList.add('border-4', 'border-green-500');
+            document.getElementById('draw-container')?.classList.add('border-green-500');
+            document.getElementById('kb-container')?.classList.add('border-green-500');
         } else {
             showFeedback('incorrect', finalHint, false);
-            document.getElementById('handwritingArea').classList.add('border-4', 'border-red-400');
-            document.getElementById('recognize-btn').disabled = false;
-            document.getElementById('clear-btn').disabled = false;
+            document.getElementById('draw-container')?.classList.add('border-red-400');
+            document.getElementById('kb-container')?.classList.add('border-red-400');
+            
+            ['clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = false;
+            });
             
             if (attemptsCount >= 2) {
                 let giveUpHtml = `<div class="mt-4 text-center"><button onclick="giveUpHandwriting()" class="px-5 py-2 bg-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-300 transition-colors shadow-sm">放棄作答並看正確步驟</button></div>`;
-                document.getElementById('feedbackMessage').innerHTML += giveUpHtml;
+                const fbMsg = document.getElementById('feedbackMessage');
+                if (fbMsg) fbMsg.innerHTML += giveUpHtml;
             }
         }
         
     } catch (err) {
         console.error(err);
-        alert(`⚠️ 批改失敗！\n\n詳細錯誤：${err.message}`);
-        loadingDiv.classList.add('hidden');
-        document.getElementById('hw-confirm-ui').classList.remove('hidden');
+        alert(`⚠️ 批改失敗！\n\n詳細錯誤：${err.message}\n\n(若顯示 GAS 崩潰，請確認已部署最新版 server.gs)`);
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+        document.getElementById('hw-confirm-ui')?.classList.remove('hidden');
     }
 };
 
@@ -600,18 +874,26 @@ window.giveUpHandwriting = function() {
     let q = questionBank[currentQuestionIndex];
     let correctOpt = q.options.find(o => o.isCorrect);
     showFeedback('incorrect', correctOpt.hint, true); 
-    document.getElementById('clear-btn').disabled = true;
-    document.getElementById('recognize-btn').disabled = true;
+    
+    ['clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = true;
+    });
 };
 
 // ==========================================
-// 結算畫面與成績儲存 (維持送往 GAS)
+// 結算畫面與成績儲存
 // ==========================================
 function showEndScreen() {
-    document.getElementById('appContainer').classList.add('hidden');
-    document.getElementById('endScreen').classList.remove('hidden');
-    document.getElementById('finalScore').textContent = score;
-    document.getElementById('totalQuestions').textContent = questionBank.length * 10;
+    document.getElementById('appContainer')?.classList.add('hidden');
+    document.getElementById('endScreen')?.classList.remove('hidden');
+    
+    let totalPossibleScore = questionBank.reduce((sum, q) => sum + (q.scoreVal || 10), 0);
+    
+    const fScore = document.getElementById('finalScore');
+    if (fScore) fScore.textContent = score;
+    const tQs = document.getElementById('totalQuestions');
+    if (tQs) tQs.textContent = totalPossibleScore;
     
     let selectedQuote = { text: "今天的累積，是明天的底氣。" };
     let pool = dynamicQuotes.length > 0 ? dynamicQuotes : motivationalQuotes.map(q => ({text: q, weight: 1}));
@@ -623,7 +905,8 @@ function showEndScreen() {
         if (randomNum < w) { selectedQuote = q; break; }
         randomNum -= w;
     }
-    document.getElementById('motivationalQuote').textContent = selectedQuote.text;
+    const mQuote = document.getElementById('motivationalQuote');
+    if (mQuote) mQuote.textContent = selectedQuote.text;
     
     const savedClass = String(getStoredData('dse_className')).toUpperCase().trim();
     const savedNum = String(getStoredData('dse_classNumber')).trim();
@@ -640,18 +923,16 @@ function showEndScreen() {
     if (rewardContainer) {
         rewardContainer.classList.remove('hidden');
         rewardContainer.innerHTML = `
-            <div id="rewardZone" class="w-full bg-white border-2 border-indigo-100 rounded-xl p-5 shadow-sm relative overflow-hidden transition-all duration-500">
+            <div id="rewardZone" class="w-full bg-white border border-slate-200 rounded-xl p-5 sm:p-6 shadow-sm relative overflow-hidden transition-all duration-500 text-left">
                 <div id="progressUI" class="block transition-opacity duration-500">
-                    <div class="flex justify-between items-end mb-3">
-                        <span class="font-bold text-slate-700 text-lg">🎁 刮刮卡解鎖進度</span>
-                        <span class="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md" id="progressTextUI">${currentProgress} / 100</span>
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="font-bold text-slate-700 text-lg flex items-center gap-2">🎁 刮刮卡解鎖進度</span>
+                        <span class="text-sm font-bold text-indigo-800 bg-indigo-100 px-3 py-1 rounded-lg" id="progressTextUI">${currentProgress} / 100</span>
                     </div>
-                    <div class="w-full bg-slate-100 rounded-full h-5 mb-2 overflow-hidden border border-slate-200 shadow-inner relative">
-                        <div id="progressBarFill" class="bg-gradient-to-r from-indigo-400 to-indigo-600 h-5 rounded-full transition-all duration-1000 ease-out relative" style="width: ${currentProgress}%">
-                            <div class="absolute inset-0 bg-white/20 w-full h-full animate-[pulse_2s_infinite]"></div>
-                        </div>
+                    <div class="w-full bg-slate-100 rounded-full h-4 mb-3 overflow-hidden shadow-inner relative">
+                        <div id="progressBarFill" class="bg-indigo-500 h-4 rounded-full transition-all duration-1000 ease-out relative" style="width: ${currentProgress}%"></div>
                     </div>
-                    <div class="text-sm text-slate-500 text-center mt-3 font-medium" id="progressHint">
+                    <div class="text-sm text-slate-500 text-center font-medium" id="progressHint">
                         還差 <span class="text-indigo-600 font-bold">${nextThresholdDist} 分</span> 即可獲得抽獎機會！傳送成績後更新進度。
                     </div>
                 </div>
@@ -668,14 +949,24 @@ function showEndScreen() {
     }
 }
 
-function updateScoreDisplay() { document.getElementById('scoreDisplay').textContent = score; }
+function updateScoreDisplay() { 
+    const sd = document.getElementById('scoreDisplay');
+    if (sd) sd.textContent = score; 
+}
 
 function submitToGoogleSheet() {
     const btn = document.getElementById('submitRecordBtn');
     const statusText = document.getElementById('submitStatus');
-    const className = document.getElementById('className').value.trim();
-    const classNumber = document.getElementById('classNumber').value.trim();
-    const studentName = document.getElementById('studentName').value.trim();
+    const classNameEl = document.getElementById('className');
+    const classNumberEl = document.getElementById('classNumber');
+    const studentNameEl = document.getElementById('studentName');
+    
+    if (!classNameEl || !classNumberEl || !studentNameEl || !statusText || !btn) return;
+
+    // 🌟 班別輸入強制轉大寫
+    const className = classNameEl.value.trim().toUpperCase();
+    const classNumber = classNumberEl.value.trim();
+    const studentName = studentNameEl.value.trim();
 
     if (!className || !classNumber || !studentName) {
         statusText.textContent = "⚠️ 請填寫所有資料"; statusText.className = "text-center text-sm font-bold mt-3 text-red-500 block"; statusText.classList.remove('hidden'); return;
@@ -686,7 +977,8 @@ function submitToGoogleSheet() {
     btn.disabled = true; btn.textContent = "傳送中..."; btn.classList.add('opacity-50'); statusText.classList.add('hidden');
     
     let displayLevel = currentLevelPref === 'mixed' ? '綜合挑戰' : currentLevelPref.toString().toUpperCase();
-    let totalScoreVal = questionBank.length * 10;
+    
+    let totalScoreVal = questionBank.reduce((sum, q) => sum + (q.scoreVal || 10), 0);
     let percentageVal = ((score / totalScoreVal) * 100).toFixed(0) + "%";
 
     const formData = new URLSearchParams();
@@ -694,7 +986,6 @@ function submitToGoogleSheet() {
     formData.append('topic', currentTopicName); formData.append('level', `程度 ${displayLevel}`); formData.append('score', score);
     formData.append('totalScore', totalScoreVal); formData.append('percentage', percentageVal);
 
-    // 成績依然傳給 Google Apps Script
     fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData })
         .then(response => response.json())
         .then(data => {
@@ -704,7 +995,7 @@ function submitToGoogleSheet() {
                 let isCrossed = data.crossedThreshold;
                 let officialName = data.officialName || studentName; 
                 
-                let student = globalLeaderboard.find(s => String(s.className).toUpperCase().trim() === className.toUpperCase() && String(s.classNum).trim() === classNumber);
+                let student = globalLeaderboard.find(s => String(s.className).toUpperCase().trim() === className && String(s.classNum).trim() === classNumber);
                 if (student) { student.totalScore = backendNewTotal; } 
                 else { globalLeaderboard.push({className: className, classNum: classNumber, studentName: officialName, totalScore: backendNewTotal}); }
                 renderLeaderboards();
@@ -731,8 +1022,9 @@ function submitToGoogleSheet() {
                             progUI.classList.add('opacity-0');
                             setTimeout(() => {
                                 progUI.classList.add('hidden'); scratchUI.classList.remove('hidden'); void scratchUI.offsetWidth; scratchUI.classList.remove('opacity-0');
-                                rewardZone.classList.replace('border-indigo-100', 'border-amber-300'); rewardZone.classList.replace('bg-white', 'bg-amber-50');
-                                document.getElementById('rewardTextDisplay').textContent = data.reward && data.reward !== "無" ? data.reward : "再接再厲！";
+                                rewardZone.classList.replace('border-slate-200', 'border-amber-300'); rewardZone.classList.replace('bg-white', 'bg-amber-50');
+                                const rewardDisp = document.getElementById('rewardTextDisplay');
+                                if (rewardDisp) rewardDisp.textContent = data.reward && data.reward !== "無" ? data.reward : "再接再厲！";
                                 renderScratchCard();
                             }, 500);
                         }
@@ -743,15 +1035,22 @@ function submitToGoogleSheet() {
                 }
                 
                 statusText.className = "text-center text-sm font-bold mt-3 text-green-600 block leading-relaxed"; statusText.classList.remove('hidden');
-                btn.textContent = "✅ 已成功傳送！"; btn.classList.replace('bg-green-600', 'bg-slate-400');
+                if (btn) {
+                    btn.textContent = "✅ 已成功傳送！"; 
+                    btn.classList.replace('bg-[#44994d]', 'bg-slate-400');
+                }
                 setTimeout(() => { fetchConfig(true); }, 2000);
             } else {
-                btn.disabled = false; btn.textContent = "重新傳送"; btn.classList.remove('opacity-50');
+                if (btn) {
+                    btn.disabled = false; btn.textContent = "重新傳送"; btn.classList.remove('opacity-50');
+                }
                 statusText.textContent = data.message; statusText.className = "text-center text-sm font-bold mt-3 text-red-500 block"; statusText.classList.remove('hidden');
             }
         })
         .catch(err => {
-            btn.disabled = false; btn.textContent = "重新傳送"; btn.classList.remove('opacity-50');
+            if (btn) {
+                btn.disabled = false; btn.textContent = "重新傳送"; btn.classList.remove('opacity-50');
+            }
             statusText.textContent = "❌ 傳送失敗，請檢查網路連線。"; statusText.className = "text-center text-sm font-bold mt-3 text-red-500 block"; statusText.classList.remove('hidden');
         });
 }
@@ -776,15 +1075,19 @@ function renderScratchCard() {
 
 function renderMath() {
     if (typeof renderMathInElement !== 'undefined') {
-        renderMathInElement(document.getElementById('main-wrapper'), { delimiters: [ {left: '$$', right: '$$', display: true}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false} ], throwOnError: false });
+        const wrap = document.getElementById('main-wrapper');
+        if (wrap) renderMathInElement(wrap, { delimiters: [ {left: '$$', right: '$$', display: true}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false} ], throwOnError: false });
     }
 }
 
 window.setQuestionNum = setQuestionNum; window.showTopicScreen = showTopicScreen; window.backToLevelSelection = backToLevelSelection; window.backToLevelSelectionFromQuiz = backToLevelSelectionFromQuiz; window.closeConfirmModal = closeConfirmModal; window.confirmBackToLevelSelection = confirmBackToLevelSelection; window.selectTopic = selectTopic; window.startGame = startGame; window.startGlobalMixed = startGlobalMixed; window.submitToGoogleSheet = submitToGoogleSheet;
 
-window.onload = () => { 
+document.addEventListener('DOMContentLoaded', () => { 
+    console.log("🚀 App.js V58 初始化執行... DOM 載入完成，已啟動終極防彈裝甲與多重跳過按鈕支援！");
     showTopicScreen(); fetchConfig(); setInterval(() => fetchConfig(true), 5000); 
     const savedClass = getStoredData('dse_className'); const savedNum = getStoredData('dse_classNumber'); const savedName = getStoredData('dse_studentName');
-    if(savedClass) document.getElementById('className').value = savedClass; if(savedNum) document.getElementById('classNumber').value = savedNum; if(savedName) document.getElementById('studentName').value = savedName;
+    const classNameEl = document.getElementById('className'); if (classNameEl && savedClass) classNameEl.value = savedClass; 
+    const classNumEl = document.getElementById('classNumber'); if (classNumEl && savedNum) classNumEl.value = savedNum; 
+    const studentNameEl = document.getElementById('studentName'); if (studentNameEl && savedName) studentNameEl.value = savedName;
     setupCanvasEvents();
-};
+});
