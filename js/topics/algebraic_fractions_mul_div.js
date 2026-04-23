@@ -115,7 +115,8 @@ function formatVar(v, p) { return p === 0 ? "1" : (p === 1 ? v : `${v}^{${p}}`);
 // ==========================================
 function generateAlgFracMulDivQuestions(num, levelPref) {
     const bank = [];
-    const singleVars = ['x', 'y', 'a', 'b', 'm', 'n']; 
+    const singleVars = ['x', 'y', 'm', 'n']; 
+    const varPairs = [['x', 'y'], ['m', 'n']];
     
     for (let i = 0; i < num; i++) {
         let levelType = levelPref;
