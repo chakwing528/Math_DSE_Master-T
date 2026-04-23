@@ -1,6 +1,6 @@
 // js/app.js
 
-console.log("App.js V61 成功載入！已啟動最高級別數位簽章防篡改系統，並修復了零分誤判！");
+console.log("App.js V63.1 成功載入！已啟動雙軌制功課派發系統與載入防護機制！");
 
 // ==========================================
 // 🚨 老師設定區
@@ -41,6 +41,12 @@ let globalLeaderboard = [];
 let currentLeaderboardHash = ""; 
 let isFetchingLock = false; 
 
+// 🌟 V62 新增：功課系統與追蹤器變數
+let isHomeworkMode = false;
+let currentHomeworkName = "";
+let dynamicHomeworkConfig = [];
+let topicScores = {}; // 追蹤各課題的分數明細
+
 let currentRecognizedLaTeX = "";
 
 function getStoredData(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
@@ -68,6 +74,12 @@ async function fetchConfig(isSilent = false) {
             }
             if (data.topicConfig) dynamicTopicConfig = data.topicConfig;
             if (data.quotes) dynamicQuotes = data.quotes;
+            
+            // 🌟 接收並渲染功課清單
+            if (data.homeworkConfig) {
+                dynamicHomeworkConfig = data.homeworkConfig;
+                renderHomeworkButtons();
+            }
         }
     } catch (e) {
         if (!isSilent) console.warn("⚠️ 讀取設定失敗", e);
@@ -76,6 +88,37 @@ async function fetchConfig(isSilent = false) {
             currentLeaderboardHash = "error";
             renderLeaderboards();
         }
+    }
+}
+
+// 🌟 新增：將功課按鈕渲染到首頁
+function renderHomeworkButtons() {
+    const hwSection = document.getElementById('homeworkSection');
+    const hwGrid = document.getElementById('homeworkGrid');
+    
+    if (!dynamicHomeworkConfig || dynamicHomeworkConfig.length === 0) {
+        if (hwSection) hwSection.classList.add('hidden');
+        return;
+    }
+    
+    // 提取不重複的功課名稱
+    let uniqueHwNames = [...new Set(dynamicHomeworkConfig.map(c => c.hwName))];
+    
+    if (hwSection) hwSection.classList.remove('hidden');
+    if (hwGrid) {
+        hwGrid.innerHTML = '';
+        uniqueHwNames.forEach(hwName => {
+            // 計算這份功課的總題數
+            let totalQs = dynamicHomeworkConfig.filter(c => c.hwName === hwName).reduce((sum, c) => sum + (c.qCount || 1), 0);
+            
+            hwGrid.innerHTML += `
+            <button onclick="startHomework('${hwName}')" class="py-5 px-3 bg-white border-2 border-amber-300 rounded-xl hover:shadow-md hover:bg-amber-100 transition-all flex flex-col items-center justify-center text-center group shadow-sm">
+                <span class="text-3xl mb-2 group-hover:scale-110 transition-transform">📚</span>
+                <span class="text-amber-800 font-bold text-lg">${hwName}</span>
+                <span class="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded-md mt-2 border border-amber-200">共 ${totalQs} 題</span>
+            </button>
+            `;
+        });
     }
 }
 
@@ -144,8 +187,11 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
     if (myRankEnd) myRankEnd.innerHTML = myRankHtml;
 }
 
+// 🌟 核心修復：統一同步全域變數 window.totalQuestionsConfig，避免因非同步載入報錯
 function setQuestionNum(num) {
     totalQuestionsConfig = num;
+    if (typeof window !== 'undefined') window.totalQuestionsConfig = num; 
+    
     document.querySelectorAll('.num-btn').forEach(btn => {
         if (btn) {
             btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-md');
@@ -169,11 +215,14 @@ function showTopicScreen() {
 function backToLevelSelection() {
     document.getElementById('appContainer')?.classList.add('hidden');
     document.getElementById('endScreen')?.classList.add('hidden');
-    if (currentTopic === 'global_mixed') showTopicScreen(); else selectTopic(currentTopic);
+    if (isHomeworkMode) showTopicScreen(); // 功課做完直接回首頁
+    else if (currentTopic === 'global_mixed') showTopicScreen(); 
+    else selectTopic(currentTopic);
 }
 
 window.restartLevel = function() {
-    startGame(currentLevelPref);
+    if (isHomeworkMode) startHomework(currentHomeworkName);
+    else startGame(currentLevelPref);
 };
 
 function backToLevelSelectionFromQuiz() { document.getElementById('confirmModal')?.classList.remove('hidden'); }
@@ -256,15 +305,72 @@ function assignHandwriting(bank) {
     }
 }
 
+// 🌟 新增：啟動功課專屬生成器
+window.startHomework = function(hwName) {
+    try {
+        isHomeworkMode = true;
+        currentHomeworkName = hwName;
+        currentTopicName = hwName; 
+        
+        let configs = dynamicHomeworkConfig.filter(c => c.hwName === hwName);
+        if (configs.length === 0) return alert("找不到此功課的設定！");
+
+        questionBank = [];
+        let qIdCounter = 1;
+        
+        configs.forEach(cfg => {
+            let qArr = [];
+            try {
+                if (cfg.topic === 'indices') qArr = generateIndicesQuestions(cfg.qCount, String(cfg.levelId));
+                else if (cfg.topic === 'factorization') qArr = generateFactorizationQuestions(cfg.qCount, String(cfg.levelId).toLowerCase());
+                else if (cfg.topic === 'rounding') qArr = generateRoundingQuestions(cfg.qCount, String(cfg.levelId));
+                else if (cfg.topic === 'identities') qArr = generateIdentitiesQuestions(cfg.qCount, String(cfg.levelId));
+                else if (cfg.topic === 'fractions') qArr = generateFractionsQuestions(cfg.qCount, String(cfg.levelId));
+                else if (cfg.topic === 'binary') qArr = generateBinaryQuestions(cfg.qCount, String(cfg.levelId));
+                else if (cfg.topic === 'expansion') qArr = generateExpansionQuestions(cfg.qCount, String(cfg.levelId));
+                else if (cfg.topic === 'alg_frac_mul_div') qArr = generateAlgFracMulDivQuestions(cfg.qCount, String(cfg.levelId));
+                else if (cfg.topic === 'triangle_area') qArr = generateTriangleAreaQuestions(cfg.qCount, String(cfg.levelId));
+            } catch(e) {
+                console.error(`Error generating ${cfg.topic}:`, e);
+            }
+
+            qArr.forEach(q => {
+                q.id = qIdCounter++;
+                questionBank.push(q);
+            });
+        });
+
+        if (questionBank.length === 0) return alert("功課題庫生成失敗，請檢查設定表！");
+
+        assignQuestionScores();
+        assignHandwriting(questionBank);
+
+        // 初始化「各課題明細追蹤器」
+        topicScores = {};
+        questionBank.forEach(q => {
+            let t = q.topic;
+            if (!topicScores[t]) topicScores[t] = { earned: 0, total: 0 };
+            topicScores[t].total += (q.scoreVal || 10);
+        });
+
+        startQuizSession();
+    } catch (error) { 
+        alert(`🚨 系統錯誤！無法讀取功課題庫。\n原因：${error.message}`); 
+    }
+};
+
 function startGlobalMixed(level) {
     try {
+        isHomeworkMode = false;
+        currentHomeworkName = "";
         currentTopic = 'global_mixed';
         currentTopicName = '跨課題綜合挑戰';
         currentLevelPref = level;
 
         let topicsList = ['indices', 'factorization', 'rounding', 'identities', 'fractions', 'binary', 'expansion', 'alg_frac_mul_div', 'triangle_area'];
         
-        let numQ = totalQuestionsConfig;
+        // 獲取最新設定的題數
+        let numQ = typeof window !== 'undefined' && window.totalQuestionsConfig ? window.totalQuestionsConfig : totalQuestionsConfig;
         let selectedTopics = [];
         
         while (selectedTopics.length < numQ) {
@@ -319,28 +425,51 @@ function startGlobalMixed(level) {
 
         assignQuestionScores();
         assignHandwriting(questionBank);
+
+        // 初始化「各課題明細追蹤器」
+        topicScores = {};
+        questionBank.forEach(q => {
+            let t = q.topic;
+            if (!topicScores[t]) topicScores[t] = { earned: 0, total: 0 };
+            topicScores[t].total += (q.scoreVal || 10);
+        });
+
         startQuizSession();
     } catch (error) { alert(`🚨 系統錯誤！無法讀取跨課題題庫。\n原因：${error.message}`); }
 }
 
 function startGame(levelPref) {
     try {
+        isHomeworkMode = false;
+        currentHomeworkName = "";
         if (currentTopic === 'global_mixed') return startGlobalMixed(levelPref);
 
         currentLevelPref = levelPref;
         
-        if (currentTopic === 'indices') questionBank = generateIndicesQuestions(totalQuestionsConfig, currentLevelPref); 
-        else if (currentTopic === 'factorization') questionBank = generateFactorizationQuestions(totalQuestionsConfig, currentLevelPref); 
-        else if (currentTopic === 'rounding') questionBank = generateRoundingQuestions(totalQuestionsConfig, currentLevelPref);
-        else if (currentTopic === 'identities') questionBank = generateIdentitiesQuestions(totalQuestionsConfig, currentLevelPref);
-        else if (currentTopic === 'fractions') questionBank = generateFractionsQuestions(totalQuestionsConfig, currentLevelPref);
-        else if (currentTopic === 'binary') questionBank = generateBinaryQuestions(totalQuestionsConfig, currentLevelPref);
-        else if (currentTopic === 'expansion') questionBank = generateExpansionQuestions(totalQuestionsConfig, currentLevelPref);
-        else if (currentTopic === 'alg_frac_mul_div') questionBank = generateAlgFracMulDivQuestions(totalQuestionsConfig, currentLevelPref);
-        else if (currentTopic === 'triangle_area') questionBank = generateTriangleAreaQuestions(totalQuestionsConfig, currentLevelPref);
+        // 獲取最新設定的題數
+        let numQ = typeof window !== 'undefined' && window.totalQuestionsConfig ? window.totalQuestionsConfig : totalQuestionsConfig;
+        
+        if (currentTopic === 'indices') questionBank = generateIndicesQuestions(numQ, currentLevelPref); 
+        else if (currentTopic === 'factorization') questionBank = generateFactorizationQuestions(numQ, currentLevelPref); 
+        else if (currentTopic === 'rounding') questionBank = generateRoundingQuestions(numQ, currentLevelPref);
+        else if (currentTopic === 'identities') questionBank = generateIdentitiesQuestions(numQ, currentLevelPref);
+        else if (currentTopic === 'fractions') questionBank = generateFractionsQuestions(numQ, currentLevelPref);
+        else if (currentTopic === 'binary') questionBank = generateBinaryQuestions(numQ, currentLevelPref);
+        else if (currentTopic === 'expansion') questionBank = generateExpansionQuestions(numQ, currentLevelPref);
+        else if (currentTopic === 'alg_frac_mul_div') questionBank = generateAlgFracMulDivQuestions(numQ, currentLevelPref);
+        else if (currentTopic === 'triangle_area') questionBank = generateTriangleAreaQuestions(numQ, currentLevelPref);
         
         assignQuestionScores();
         assignHandwriting(questionBank);
+
+        // 初始化「各課題明細追蹤器」
+        topicScores = {};
+        questionBank.forEach(q => {
+            let t = q.topic;
+            if (!topicScores[t]) topicScores[t] = { earned: 0, total: 0 };
+            topicScores[t].total += (q.scoreVal || 10);
+        });
+
         startQuizSession();
     } catch (error) { alert(`🚨 系統錯誤！無法讀取題庫。\n原因：${error.message}`); }
 }
@@ -416,10 +545,15 @@ function loadQuestion() {
     if(!q) return;
     
     const tBadge = document.getElementById('topicBadge');
-    if (tBadge) tBadge.textContent = q.topic;
+    if (tBadge) {
+        tBadge.textContent = isHomeworkMode ? currentHomeworkName : q.topic;
+    }
     
     const lBadge = document.getElementById('levelBadge');
-    if (lBadge) lBadge.innerHTML = currentTopic === 'global_mixed' ? `綜合挑戰 (難度: ${currentLevelPref})` : `難度: ${q.level}`;
+    if (lBadge) {
+        if (isHomeworkMode) lBadge.innerHTML = "專屬功課";
+        else lBadge.innerHTML = currentTopic === 'global_mixed' ? `綜合挑戰 (難度: ${currentLevelPref})` : `難度: ${q.level}`;
+    }
     
     const pText = document.getElementById('progressText');
     if (pText) pText.textContent = `完成 ${currentQuestionIndex}/${questionBank.length}`;
@@ -493,6 +627,8 @@ function handleAnswer(selectedOption, buttonElement) {
         btn.classList.add('opacity-50', 'cursor-not-allowed');
     });
 
+    let q = questionBank[currentQuestionIndex];
+
     if (selectedOption.isCorrect) {
         if(buttonElement) {
             buttonElement.classList.add('border-green-500', 'bg-green-50');
@@ -504,8 +640,10 @@ function handleAnswer(selectedOption, buttonElement) {
         }
         
         if (attemptsCount === 1) { 
-            let q = questionBank[currentQuestionIndex];
             score += (q.scoreVal || 10); 
+            if (topicScores[q.topic]) {
+                topicScores[q.topic].earned += (q.scoreVal || 10);
+            }
             updateScoreDisplay(); 
         }
         
@@ -823,6 +961,9 @@ window.confirmAndGrade = async function() {
         if (result.isCorrect) {
             if (attemptsCount === 1) { 
                 score += (q.scoreVal || 10); 
+                if (topicScores[q.topic]) {
+                    topicScores[q.topic].earned += (q.scoreVal || 10);
+                }
                 updateScoreDisplay(); 
             }
             showFeedback('correct', finalHint, true);
@@ -884,6 +1025,37 @@ function showEndScreen() {
         if (ratio >= 0.8) subtitle.textContent = "AI 分析顯示你對這個單元的概念掌握得非常出色！";
         else if (ratio >= 0.5) subtitle.textContent = "AI 分析顯示你對這個單元的概念掌握得不錯！";
         else subtitle.textContent = "AI 分析顯示你還需要多加練習，不要灰心，繼續努力！";
+    }
+
+    // 🌟 渲染各課題表現明細表
+    const trackerUI = document.getElementById('topicDetailsTracker');
+    const listUI = document.getElementById('topicDetailsList');
+    if (trackerUI && listUI) {
+        // 如果不是綜合挑戰也不是功課模式，只有一個單元時，隱藏明細以保持簡潔
+        if (!isHomeworkMode && currentTopic !== 'global_mixed') {
+            trackerUI.classList.add('hidden');
+        } else {
+            trackerUI.classList.remove('hidden');
+            let trackerHtml = '';
+            for (let t in topicScores) {
+                let s = topicScores[t];
+                let pct = s.total > 0 ? Math.round((s.earned / s.total) * 100) : 0;
+                let barColor = pct >= 80 ? 'bg-green-500' : (pct >= 50 ? 'bg-amber-400' : 'bg-red-500');
+                let icon = pct >= 80 ? '✅' : (pct >= 50 ? '⚠️' : '❌');
+                
+                trackerHtml += `
+                <div>
+                    <div class="flex justify-between text-sm sm:text-base font-bold text-slate-600 mb-1">
+                        <span>${t}</span>
+                        <span>${s.earned} / ${s.total} (${pct}%) ${icon}</span>
+                    </div>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5 shadow-inner">
+                        <div class="${barColor} h-2.5 rounded-full transition-all" style="width: ${pct}%"></div>
+                    </div>
+                </div>`;
+            }
+            listUI.innerHTML = trackerHtml;
+        }
     }
     
     let selectedQuote = { text: "今天的累積，是明天的底氣。" };
@@ -971,6 +1143,15 @@ function submitToGoogleSheet() {
     let totalScoreVal = questionBank.reduce((sum, q) => sum + (q.scoreVal || 10), 0);
     let percentageVal = ((score / totalScoreVal) * 100).toFixed(0) + "%";
 
+    // 🌟 打包課題明細資料準備傳送給後端
+    let detailsArr = [];
+    for (let t in topicScores) {
+        let s = topicScores[t];
+        let pct = s.total > 0 ? Math.round((s.earned / s.total) * 100) : 0;
+        detailsArr.push(`${t}: ${s.earned}/${s.total} (${pct}%)`);
+    }
+    let topicDetailsString = detailsArr.join(" | ");
+
     // ====================================================================
     // 🔐 V61 終極加密防禦：強制將分數轉為字串進行加密，消滅型別錯誤
     // ====================================================================
@@ -997,6 +1178,10 @@ function submitToGoogleSheet() {
     formData.append('totalScore', totalScoreVal); 
     formData.append('percentage', percentageVal);
     formData.append('sig', signature); 
+    // 🌟 V62 功課追蹤欄位
+    formData.append('isHomework', isHomeworkMode);
+    formData.append('homeworkName', currentHomeworkName);
+    formData.append('topicDetails', topicDetailsString);
 
     fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData })
         .then(response => response.json())
@@ -1027,7 +1212,7 @@ function submitToGoogleSheet() {
 
                 if (isCrossed) {
                     if (hint) hint.innerHTML = `<span class="text-amber-600 font-bold">🎉 恭喜達成滿百目標！正在解鎖刮刮卡...</span>`;
-                    statusText.innerHTML = `✅ 成績傳送成功！(今日第 ${backendPlayCount} 次)<br>🎉 目前總分：${backendNewTotal} 分。邁向下一抽還差 <span class="text-indigo-600 font-bold">${100 - (backendNewTotal % 100)} 分</span>！`;
+                    statusText.innerHTML = `${data.message}<br>🎉 目前總分：${backendNewTotal} 分。邁向下一抽還差 <span class="text-indigo-600 font-bold">${100 - (backendNewTotal % 100)} 分</span>！`;
                     setTimeout(() => {
                         const progUI = document.getElementById('progressUI'); const scratchUI = document.getElementById('scratchUI'); const rewardZone = document.getElementById('rewardZone');
                         if (progUI && scratchUI && rewardZone) {
@@ -1043,7 +1228,7 @@ function submitToGoogleSheet() {
                     }, 1500);
                 } else {
                     if (hint) hint.innerHTML = `還差 <span class="text-indigo-600 font-bold">${pointsNeeded} 分</span> 即可獲得抽獎機會！傳送成績後更新進度。`;
-                    statusText.innerHTML = `✅ 成績傳送成功！(今日第 ${backendPlayCount} 次)<br>📊 目前總分：${backendNewTotal} 分。`;
+                    statusText.innerHTML = `${data.message}<br>📊 目前總分：${backendNewTotal} 分。`;
                 }
                 
                 statusText.className = "text-center text-sm font-bold mt-3 text-green-600 block leading-relaxed"; statusText.classList.remove('hidden');
@@ -1056,6 +1241,7 @@ function submitToGoogleSheet() {
                 if (btn) {
                     btn.disabled = false; btn.textContent = "重新傳送"; btn.classList.remove('opacity-50');
                 }
+                // ⚠️ 如果是超過次數等伺服器攔截，會在這裡顯示紅色警告
                 statusText.textContent = data.message; statusText.className = "text-center text-sm font-bold mt-3 text-red-500 block"; statusText.classList.remove('hidden');
             }
         })
@@ -1092,10 +1278,22 @@ function renderMath() {
     }
 }
 
-window.setQuestionNum = setQuestionNum; window.showTopicScreen = showTopicScreen; window.backToLevelSelection = backToLevelSelection; window.backToLevelSelectionFromQuiz = backToLevelSelectionFromQuiz; window.closeConfirmModal = closeConfirmModal; window.confirmBackToLevelSelection = confirmBackToLevelSelection; window.selectTopic = selectTopic; window.startGame = startGame; window.startGlobalMixed = startGlobalMixed; window.submitToGoogleSheet = submitToGoogleSheet;
+// 🌟 核心修復：將所有外部全域函數掛載到 window，確保 HTML 能順利調用
+window.setQuestionNum = setQuestionNum; 
+window.showTopicScreen = showTopicScreen; 
+window.backToLevelSelection = backToLevelSelection; 
+window.backToLevelSelectionFromQuiz = backToLevelSelectionFromQuiz; 
+window.closeConfirmModal = closeConfirmModal; 
+window.confirmBackToLevelSelection = confirmBackToLevelSelection; 
+window.selectTopic = selectTopic; 
+window.startGame = startGame; 
+window.startGlobalMixed = startGlobalMixed; 
+window.submitToGoogleSheet = submitToGoogleSheet;
+window.startHomework = startHomework;
+window.restartLevel = restartLevel;
 
 document.addEventListener('DOMContentLoaded', () => { 
-    console.log("🚀 App.js V61 初始化執行... DOM 載入完成，已啟動終極加密防禦與多重跳過按鈕支援！");
+    console.log("🚀 App.js V63.1 初始化執行... DOM 載入完成，已同步 HTML 按鈕修復方案！");
     showTopicScreen(); fetchConfig(); setInterval(() => fetchConfig(true), 5000); 
     const savedClass = getStoredData('dse_className'); const savedNum = getStoredData('dse_classNumber'); const savedName = getStoredData('dse_studentName');
     const classNameEl = document.getElementById('className'); if (classNameEl && savedClass) classNameEl.value = savedClass; 
