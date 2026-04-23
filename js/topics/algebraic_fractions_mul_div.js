@@ -3,7 +3,7 @@
 // ==========================================
 // 通分母專屬錯誤提示訊息
 // ==========================================
-const msgFracSign = `<div class="text-red-600 font-bold text-lg mb-1">❗ 正負號或展開錯誤</div>`;
+var msgFracSign = `<div class="text-red-600 font-bold text-lg mb-1">❗ 正負號或展開錯誤</div>`;
 
 // ==========================================
 // 題目生成器：通分母 (Algebraic Fractions) 
