@@ -20,11 +20,36 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
     
-    <!-- 🚨 系統診斷工具 -->
+    <!-- 🚨 系統診斷工具與防護腳本 -->
     <script>
         window.onerror = function(msg, url, lineNo, columnNo, error) {
-            alert("🚨 系統偵測到程式碼有誤：\n" + msg + "\n\n這通常是因為複製 app.js 時遺漏了最後一行的括號，或是檔案上傳失敗！");
+            console.error("系統偵測到錯誤：\n" + msg + "\n位置：" + url + "\n行數：" + lineNo);
             return false;
+        };
+
+        // 🌟 解決 ReferenceError: 直接在此定義 UI 切換邏輯
+        // 確保即使在 Canvas 環境中（外部 app.js 無法載入時），題數按鈕仍能正常點擊不報錯
+        window.totalQuestionsConfig = 3;
+        window.setQuestionNum = function(num) {
+            window.totalQuestionsConfig = num;
+            document.querySelectorAll('.num-btn').forEach(btn => {
+                if (btn) {
+                    btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-md');
+                    btn.classList.add('bg-transparent', 'text-slate-600');
+                }
+            });
+            const activeBtn = document.getElementById('btn-num-' + num);
+            if (activeBtn) { 
+                activeBtn.classList.remove('bg-transparent', 'text-slate-600'); 
+                activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-md'); 
+            }
+        };
+
+        // 增加簡單的環境警告，提醒如果在 Canvas 中測試會無法讀取外部題庫
+        window.checkEnvironment = function() {
+            if (typeof window.startGame === 'undefined') {
+                alert("⚠️ 提示：外部核心腳本 (app.js 或題庫) 尚未完全載入。\n\n如果您是在 AI Canvas 預覽環境中，由於無法讀取外部 JS 檔案，請將代碼複製回您的 GitHub 或伺服器上測試。");
+            }
         };
     </script>
 
@@ -39,14 +64,14 @@
 
     <!-- 🌟 版本檢測雷達 -->
     <div class="fixed bottom-2 right-2 bg-slate-800 text-white text-xs px-2 py-1 rounded-md opacity-60 z-50 pointer-events-none">
-        V58
+        V63.1
     </div>
 
     <!-- 主容器 -->
     <main class="max-w-3xl mx-auto p-4 sm:p-6 mt-4" id="main-wrapper">
         
         <!-- ========================================== -->
-        <!-- 畫面 1：選擇課題 (首頁 - 完美復原截圖排版) -->
+        <!-- 畫面 1：選擇課題 (首頁) -->
         <!-- ========================================== -->
         <div id="topicScreen" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-10 text-center max-w-3xl mx-auto">
             
@@ -59,13 +84,27 @@
             </div>
 
             <!-- 黃色獎勵橫幅 -->
-            <div class="bg-[#FFF9E6] border border-[#FDE68A] text-slate-700 p-5 rounded-xl mb-8 text-sm sm:text-base leading-relaxed text-left shadow-sm mx-auto max-w-2xl">
-                每天刷題 <span class="font-bold text-red-600">無次數限制</span>！只要不斷挑戰累積積分，<span class="font-bold text-red-600">每累積滿 100 分</span> 即可解鎖一張專屬刮刮卡，隨機抽取 <span class="font-bold text-red-600">欣賞卡、Mcdonald、零食、飲品、文具！</span> 快來挑戰吧！
+            <div class="bg-[#FFF9E6] border border-[#FDE68A] text-slate-700 p-5 rounded-xl mb-10 text-sm sm:text-base leading-relaxed text-center shadow-sm mx-auto max-w-2xl">
+                每天刷題 <span class="font-bold text-red-600">無次數限制</span>！只要不斷挑戰累積積分，<span class="font-bold text-red-600">每累積滿 100 分</span> 即可解鎖一張專屬刮刮卡，隨機抽取 <span class="font-bold text-red-600">印賞卡、Mcdonald、零食、飲品、文具！</span> 快來挑戰吧！
             </div>
 
+            <!-- ========================================== -->
+            <!-- 🌟 新增：班級專屬功課區塊 -->
+            <!-- ========================================== -->
+            <div id="homeworkSection" class="mb-12 hidden border-2 border-amber-200 bg-amber-50 rounded-2xl p-6 shadow-sm">
+                <h3 class="text-xl sm:text-2xl font-bold text-amber-700 mb-2 flex items-center justify-center gap-2">📝 班級專屬功課</h3>
+                <p class="text-amber-600 text-sm sm:text-base mb-6 font-medium">老師已派發專屬功課！完成將會記錄明細成績（每份功課限交 2 次）</p>
+                <div id="homeworkGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                    <!-- 動態生成功課按鈕 -->
+                </div>
+            </div>
+
+            <div class="mb-8 border-t border-slate-200 pt-8"></div>
+
+            <!-- 原有：日常練習區塊 -->
             <div class="text-center mb-6">
-                <h2 class="text-xl font-bold text-slate-700">請選擇練習課題</h2>
-                <p class="text-sm text-slate-500 mt-1">每天進步一點點，時間會看見</p>
+                <h2 class="text-xl font-bold text-slate-700">🌱 自主日常練習</h2>
+                <p class="text-sm text-slate-500 mt-1">無限次數，累積積分抽刮刮卡</p>
             </div>
             
             <!-- 題數設定膠囊 -->
@@ -78,35 +117,35 @@
             
             <!-- 九宮格課題區塊 -->
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
-                <button onclick="selectTopic('indices')" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">指數定律</button>
-                <button onclick="selectTopic('factorization')" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">因式分解</button>
-                <button onclick="selectTopic('rounding')" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">近似值與捨入</button>
-                <button onclick="selectTopic('identities')" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">恆等式</button>
-                <button onclick="selectTopic('fractions')" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">通分母</button>
-                <button onclick="selectTopic('binary')" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">二進制</button>
-                <button onclick="selectTopic('expansion')" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">恆等式的展開</button>
-                <button onclick="selectTopic('alg_frac_mul_div')" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">代數分式乘除法</button>
-                <button onclick="selectTopic('triangle_area')" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">4B第10章 三角形面積</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('indices'); else checkEnvironment();" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">指數定律</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('factorization'); else checkEnvironment();" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">因式分解</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('rounding'); else checkEnvironment();" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">近似值與捨入</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('identities'); else checkEnvironment();" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">恆等式</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('fractions'); else checkEnvironment();" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">通分母</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('binary'); else checkEnvironment();" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">二進制</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('expansion'); else checkEnvironment();" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">恆等式的展開</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('alg_frac_mul_div'); else checkEnvironment();" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">代數分式乘除法</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('triangle_area'); else checkEnvironment();" class="py-4 px-2 border border-slate-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all font-bold text-slate-700 bg-white shadow-sm text-sm sm:text-base">4B第10章 三角形面積</button>
             </div>
 
             <!-- 跨課題綜合挑戰四格排版 -->
             <div class="mt-8 border-t border-slate-100 pt-8 text-center">
-                <h3 class="text-xl font-bold text-amber-600 mb-2 flex justify-center items-center gap-2">🏆 跨課題綜合挑戰</h3>
-                <p class="text-slate-500 text-sm mb-6">包含所有課題，全面測試你的實力 (自動調整題數以涵蓋所有課題)</p>
+                <h3 class="text-xl font-bold text-slate-700 mb-2 flex justify-center items-center gap-2">🏆 跨課題綜合挑戰</h3>
+                <p class="text-slate-500 text-sm mb-6">包含所有課題，全面測試你的實力</p>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <button onclick="startGlobalMixed(1)" class="py-4 px-2 border border-green-200 bg-[#F0FDF4] rounded-xl hover:shadow-md transition-all flex flex-col items-center justify-center">
+                    <button onclick="if(typeof startGlobalMixed !== 'undefined') startGlobalMixed(1); else checkEnvironment();" class="py-4 px-2 border border-green-200 bg-[#F0FDF4] rounded-xl hover:shadow-md transition-all flex flex-col items-center justify-center">
                         <span class="text-green-500 font-bold text-lg mb-1">⭐</span>
                         <span class="text-green-700 font-bold">程度 1</span>
                     </button>
-                    <button onclick="startGlobalMixed(2)" class="py-4 px-2 border border-blue-200 bg-[#EFF6FF] rounded-xl hover:shadow-md transition-all flex flex-col items-center justify-center">
+                    <button onclick="if(typeof startGlobalMixed !== 'undefined') startGlobalMixed(2); else checkEnvironment();" class="py-4 px-2 border border-blue-200 bg-[#EFF6FF] rounded-xl hover:shadow-md transition-all flex flex-col items-center justify-center">
                         <span class="text-blue-500 font-bold text-lg mb-1">⭐⭐</span>
                         <span class="text-blue-700 font-bold">程度 2</span>
                     </button>
-                    <button onclick="startGlobalMixed(3)" class="py-4 px-2 border border-purple-200 bg-[#FAF5FF] rounded-xl hover:shadow-md transition-all flex flex-col items-center justify-center">
+                    <button onclick="if(typeof startGlobalMixed !== 'undefined') startGlobalMixed(3); else checkEnvironment();" class="py-4 px-2 border border-purple-200 bg-[#FAF5FF] rounded-xl hover:shadow-md transition-all flex flex-col items-center justify-center">
                         <span class="text-purple-500 font-bold text-lg mb-1">⭐⭐⭐</span>
                         <span class="text-purple-700 font-bold">程度 3</span>
                     </button>
-                    <button onclick="startGlobalMixed(4)" class="py-4 px-2 border border-orange-200 bg-[#FFFBEB] rounded-xl hover:shadow-md transition-all flex flex-col items-center justify-center">
+                    <button onclick="if(typeof startGlobalMixed !== 'undefined') startGlobalMixed(4); else checkEnvironment();" class="py-4 px-2 border border-orange-200 bg-[#FFFBEB] rounded-xl hover:shadow-md transition-all flex flex-col items-center justify-center">
                         <span class="text-orange-500 font-bold text-lg mb-1">⭐⭐⭐⭐</span>
                         <span class="text-orange-700 font-bold">程度 4</span>
                     </button>
@@ -115,8 +154,8 @@
 
             <!-- 排行榜區塊 -->
             <div class="mt-12 pt-8 border-t border-slate-100 text-center">
-                <h3 class="text-xl font-bold text-amber-600 mb-2 flex justify-center items-center gap-2">
-                    🏆 勤學排行榜 (Top 20)
+                <h3 class="text-xl font-bold text-indigo-700 mb-2 flex justify-center items-center gap-2">
+                    🏅 日常勤學排行榜 (Top 20)
                 </h3>
                 <p class="text-slate-500 text-sm mb-6">全校最強刷題王者，累積最高分的勤學生都在這裡！</p>
                 
@@ -231,7 +270,7 @@
                     <!-- 選擇題區塊 -->
                     <div id="optionsGrid" class="grid grid-cols-1 gap-3 sm:gap-4 mt-6"></div>
 
-                    <!-- 🌟 新增：選擇題專用的跳過本題按鈕 -->
+                    <!-- 選擇題專用跳過按鈕 -->
                     <button id="skip-btn-mc" onclick="skipQuestion()" class="skip-action-btn hidden w-full mt-4 py-3 bg-slate-100 text-orange-600 font-bold rounded-lg border border-orange-200 hover:bg-orange-50 transition-colors shadow-sm flex justify-center items-center gap-2">
                         <span>⏭️ 跳過本題 (0分)</span>
                     </button>
@@ -291,7 +330,7 @@
                                 <p id="global-loading-text" class="text-indigo-700 font-bold text-center px-4 leading-relaxed">載入中...</p>
                             </div>
                             
-                            <!-- 終極防呆：確認視窗 (直接寫死在 HTML) -->
+                            <!-- 終極防呆：確認視窗 -->
                             <div id="hw-confirm-ui" class="hidden absolute inset-0 bg-white/95 z-20 flex flex-col items-center justify-center p-4 backdrop-blur-sm transition-all rounded-xl border border-slate-200">
                                 <h3 class="text-lg sm:text-xl font-bold text-indigo-700 mb-2">🤖 步驟一：數式轉換確認</h3>
                                 <div id="hw-confirm-math" class="text-xl sm:text-2xl font-bold text-indigo-700 overflow-x-auto math-scroll py-4 px-2 w-full bg-white rounded-lg border-2 border-indigo-200 mb-4 min-h-[80px] flex items-center justify-center shadow-inner whitespace-nowrap"></div>
@@ -319,13 +358,24 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- 畫面 4：結算畫面 (End Screen - 完美復原截圖排版) -->
+        <!-- 畫面 4：結算畫面 (End Screen) -->
         <!-- ========================================== -->
         <div id="endScreen" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-10 text-center max-w-3xl mx-auto hidden">
             <h2 class="text-3xl font-bold text-slate-800 mb-2 mt-4">練習完成！</h2>
+            <p id="endSubtitle" class="text-slate-500 mb-6 font-medium">AI 分析顯示你對這個單元的概念掌握得不錯！</p>
             
             <div class="mb-8 text-2xl font-bold text-slate-800">
                 總得分：<span id="finalScore" class="text-indigo-600 text-4xl mx-1 font-black">30</span> / <span id="totalQuestions" class="text-slate-700 text-2xl">30</span>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 🌟 新增：各課題得分明細追蹤器 -->
+            <!-- ========================================== -->
+            <div id="topicDetailsTracker" class="mb-8 p-5 bg-slate-50 border border-slate-200 rounded-xl text-left shadow-sm hidden">
+                <h3 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">📈 各課題表現明細</h3>
+                <div id="topicDetailsList" class="space-y-4">
+                    <!-- 系統將自動產生得分條 -->
+                </div>
             </div>
 
             <!-- 名言區塊 (淺紫色) -->
@@ -334,14 +384,13 @@
                 <div id="motivationalQuote" class="text-lg font-bold text-indigo-900">想得再多，不如踏實去做。</div>
             </div>
 
-            <!-- 遞交成績區塊 (三欄式排列) -->
+            <!-- 遞交成績區塊 -->
             <div class="border border-slate-200 rounded-xl p-5 sm:p-6 mb-6 text-left shadow-sm bg-white">
                 <h3 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">📝 遞交成績給老師</h3>
                 
                 <div class="grid grid-cols-3 gap-3 mb-4">
                     <div class="col-span-1">
                         <label class="block text-xs font-bold text-slate-600 mb-1">班別 (例: 3A)</label>
-                        <!-- 🌟 班別改為文字輸入框 -->
                         <input type="text" id="className" placeholder="如: 4A" class="w-full p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 uppercase text-sm">
                     </div>
                     <div class="col-span-1">
@@ -374,27 +423,27 @@
 
             <!-- 底部按鈕區塊 -->
             <div class="flex flex-col sm:flex-row gap-3">
-                <button onclick="restartLevel()" class="flex-1 py-3 bg-[#5B50D6] text-white font-bold rounded-xl shadow-sm hover:bg-indigo-700 transition-colors">重做此難度</button>
-                <button onclick="backToLevelSelection()" class="flex-1 py-3 bg-[#EEF2FF] text-indigo-700 font-bold rounded-xl shadow-sm hover:bg-indigo-100 transition-colors border border-indigo-100">選擇其他難度</button>
-                <button onclick="showTopicScreen()" class="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-colors">返回主選單</button>
+                <button onclick="if(typeof restartLevel !== 'undefined') restartLevel(); else checkEnvironment();" class="flex-1 py-3 bg-[#5B50D6] text-white font-bold rounded-xl shadow-sm hover:bg-indigo-700 transition-colors">重做此練習</button>
+                <button onclick="if(typeof backToLevelSelection !== 'undefined') backToLevelSelection(); else checkEnvironment();" class="flex-1 py-3 bg-[#EEF2FF] text-indigo-700 font-bold rounded-xl shadow-sm hover:bg-indigo-100 transition-colors border border-indigo-100">選擇其他練習</button>
+                <button onclick="if(typeof showTopicScreen !== 'undefined') showTopicScreen(); else checkEnvironment();" class="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-colors">返回主選單</button>
             </div>
         </div>
     </main>
 
     <!-- ========================================== -->
-    <!-- 🌟 強制破除快取 (v=58) 加上 defer 確保載入順序 -->
+    <!-- 🌟 強制破除快取 (v=63) 加上 defer 確保載入順序 -->
     <!-- ========================================== -->
-    <script src="js/utils.js?v=58" defer></script>
-    <script src="js/topics/indices.js?v=58" defer></script>
-    <script src="js/topics/factorization.js?v=58" defer></script>
-    <script src="js/topics/rounding.js?v=58" defer></script>
-    <script src="js/topics/identities.js?v=58" defer></script>
-    <script src="js/topics/fractions.js?v=58" defer></script>
-    <script src="js/topics/binary.js?v=58" defer></script>
-    <script src="js/topics/expansion.js?v=58" defer></script>
-    <script src="js/topics/algebraic_fractions_mul_div.js?v=58" defer></script>
-    <script src="js/topics/triangle_area.js?v=58" defer></script>
-    <script src="js/app.js?v=58" defer></script>
+    <script src="js/utils.js?v=63" defer></script>
+    <script src="js/topics/indices.js?v=63" defer></script>
+    <script src="js/topics/factorization.js?v=63" defer></script>
+    <script src="js/topics/rounding.js?v=63" defer></script>
+    <script src="js/topics/identities.js?v=63" defer></script>
+    <script src="js/topics/fractions.js?v=63" defer></script>
+    <script src="js/topics/binary.js?v=63" defer></script>
+    <script src="js/topics/expansion.js?v=63" defer></script>
+    <script src="js/topics/algebraic_fractions_mul_div.js?v=63" defer></script>
+    <script src="js/topics/triangle_area.js?v=63" defer></script>
+    <script src="js/app.js?v=63" defer></script>
 
 </body>
 </html>
