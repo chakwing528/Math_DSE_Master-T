@@ -1,6 +1,6 @@
 // js/app.js
 
-console.log("App.js V63.1 成功載入！已啟動雙軌制功課派發系統與載入防護機制！");
+console.log("App.js V63.2 成功載入！已啟動雙軌制功課派發系統與進階偵錯雷達！");
 
 // ==========================================
 // 🚨 老師設定區
@@ -60,6 +60,8 @@ async function fetchConfig(isSilent = false) {
             const response = await fetch(cacheBusterUrl);
             const data = await response.json();
             
+            console.log("📥 從伺服器收到的 JSON 資料：", data); // 🌟 協助排錯用
+            
             if (data && data.leaderboard) {
                 const newHash = JSON.stringify(data.leaderboard);
                 if (newHash !== currentLeaderboardHash) {
@@ -76,8 +78,13 @@ async function fetchConfig(isSilent = false) {
             if (data.quotes) dynamicQuotes = data.quotes;
             
             // 🌟 接收並渲染功課清單
-            if (data.homeworkConfig) {
+            if (data.homeworkConfig && data.homeworkConfig.length > 0) {
+                console.log("✅ 成功獲取功課設定：", data.homeworkConfig);
                 dynamicHomeworkConfig = data.homeworkConfig;
+                renderHomeworkButtons();
+            } else {
+                console.warn("⚠️ 伺服器回傳的功課清單為空！請檢查：\n1. Google Apps Script 是否已部署「新版本」。\n2. Google Sheet 是否有名為「功課設定表」的分頁，且裡面有資料。");
+                dynamicHomeworkConfig = [];
                 renderHomeworkButtons();
             }
         }
@@ -97,6 +104,7 @@ function renderHomeworkButtons() {
     const hwGrid = document.getElementById('homeworkGrid');
     
     if (!dynamicHomeworkConfig || dynamicHomeworkConfig.length === 0) {
+        console.log("📭 功課清單為空，隱藏功課區塊。");
         if (hwSection) hwSection.classList.add('hidden');
         return;
     }
@@ -1293,7 +1301,7 @@ window.startHomework = startHomework;
 window.restartLevel = restartLevel;
 
 document.addEventListener('DOMContentLoaded', () => { 
-    console.log("🚀 App.js V63.1 初始化執行... DOM 載入完成，已同步 HTML 按鈕修復方案！");
+    console.log("🚀 App.js V63.2 初始化執行... DOM 載入完成，已同步 HTML 按鈕修復方案並增強偵錯日誌！");
     showTopicScreen(); fetchConfig(); setInterval(() => fetchConfig(true), 5000); 
     const savedClass = getStoredData('dse_className'); const savedNum = getStoredData('dse_classNumber'); const savedName = getStoredData('dse_studentName');
     const classNameEl = document.getElementById('className'); if (classNameEl && savedClass) classNameEl.value = savedClass; 
