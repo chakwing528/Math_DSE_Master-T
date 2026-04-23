@@ -13,8 +13,8 @@ const msgFact4 = `<div class="text-red-600 font-bold text-lg mb-1">❗ 正負號
 // ==========================================
 function generateFactorizationQuestions(num, levelPref) {
     const bank = [];
-    const singleVars = ['x', 'y', 'a', 'b', 'm', 'n']; 
-    const varPairs = [['x', 'y'], ['a', 'b'], ['m', 'n'], ['p', 'q']];
+    const singleVars = ['x', 'y', 'm', 'n']; 
+    const varPairs = [['x', 'y'], ['m', 'n']];
     
     for (let i = 0; i < num; i++) {
         let levelType = levelPref;
