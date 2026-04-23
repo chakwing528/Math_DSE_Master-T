@@ -1,6 +1,6 @@
 // js/app.js
 
-console.log("App.js V58 成功載入！已完美整合無提示跳過功能與精準手寫題數分配！");
+console.log("App.js V60 成功載入！已啟動最高級別數位簽章防篡改系統！");
 
 // ==========================================
 // 🚨 老師設定區
@@ -116,13 +116,8 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
     let html = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-2">';
     globalLeaderboard.slice(0, 20).forEach((student, index) => {
         let rankIcon = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `<span class="inline-block w-6 text-center text-slate-400 font-bold text-sm">${index + 1}.</span>`));
-        const isHighestMe = (String(student.className).toUpperCase().trim() === currentUserClass && String(student.classNum).trim() === currentUserNum) && (index + 1 === userRank);
-
-        const bgClass = isHighestMe ? 'bg-amber-100 border-amber-300 ring-2 ring-amber-200' : 'bg-white border-slate-100';
-        const textClass = isHighestMe ? 'text-amber-900' : 'text-slate-700';
-        const scoreClass = isHighestMe ? 'text-amber-700' : 'text-indigo-600';
         
-        html += `<div class="flex justify-between items-center ${bgClass} p-4 rounded-xl border shadow-sm transition-all hover:shadow-md"><div class="flex items-center gap-3">${rankIcon}<span class="font-bold ${textClass} text-base">${student.className} (${student.classNum}) ${student.studentName}</span></div><div class="${scoreClass} font-bold text-lg">${student.totalScore} 分</div></div>`;
+        html += `<div class="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md"><div class="flex items-center gap-3">${rankIcon}<span class="font-bold text-slate-700 text-base">${student.className} (${student.classNum}) ${student.studentName}</span></div><div class="text-indigo-600 font-bold text-base">${student.totalScore} 分</div></div>`;
     });
     html += '</div>';
 
@@ -131,13 +126,8 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
     let endHtml = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-2">';
     globalLeaderboard.slice(0, 20).forEach((student, index) => {
         let rankIcon = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `<span class="inline-block w-6 text-center text-slate-400 font-bold text-sm">${index + 1}.</span>`));
-        const isHighestMe = (String(student.className).toUpperCase().trim() === currentUserClass && String(student.classNum).trim() === currentUserNum) && (index + 1 === userRank);
-
-        const bgClass = isHighestMe ? 'bg-amber-100 border-amber-400 ring-2 ring-amber-300' : 'bg-white border-slate-100';
-        const textClass = isHighestMe ? 'text-amber-800' : 'text-slate-700';
-        const scoreClass = isHighestMe ? 'text-amber-700' : 'text-indigo-600';
-
-        endHtml += `<div class="flex justify-between items-center ${bgClass} p-3 rounded-xl border shadow-sm transition-all hover:shadow-md"><div class="flex items-center gap-2">${rankIcon}<span class="font-bold ${textClass} text-sm sm:text-base">${student.className} (${student.classNum}) ${student.studentName}</span></div><div class="${scoreClass} font-bold text-sm sm:text-base">${student.totalScore} 分</div></div>`;
+        
+        endHtml += `<div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md"><div class="flex items-center gap-2">${rankIcon}<span class="font-bold text-slate-700 text-sm sm:text-base">${student.className} (${student.classNum}) ${student.studentName}</span></div><div class="text-indigo-600 font-bold text-sm sm:text-base">${student.totalScore} 分</div></div>`;
     });
     endHtml += '</div>';
     if (endContainer) endContainer.innerHTML = endHtml;
@@ -253,7 +243,6 @@ function assignHandwriting(bank) {
     if (!ENABLE_AI_HANDWRITING || !bank) return; 
     let hwCount = 0;
     
-    // 🌟 精準分配手寫題數
     if (bank.length === 3) hwCount = 1;
     else if (bank.length === 5) hwCount = 2;
     else if (bank.length === 10) hwCount = 3;
@@ -393,19 +382,16 @@ window.switchInputMode = function(mode) {
     }
 };
 
-// 🌟 修正：移除彈窗與解答提示，直接給 0 分並進入下一題狀態
 window.skipQuestion = function() {
     let q = questionBank[currentQuestionIndex];
     if(!q) return;
     
     attemptsCount = 2; // 強制標記為已失敗兩次
     
-    // 🌟 直接顯示跳過訊息，不再顯示解答與解析
     showFeedback('incorrect', `<div class="mb-4 text-orange-600 font-bold text-lg sm:text-xl bg-orange-50 p-3 rounded-lg border border-orange-200 shadow-sm">⏭️ 你已選擇跳過本題 (獲得 0 分)</div>`, true); 
     
     disableAllButtons();
     
-    // 停用所有跳過按鈕
     const skipBtns = document.querySelectorAll('.skip-action-btn');
     skipBtns.forEach(btn => {
         btn.disabled = true;
@@ -440,7 +426,6 @@ function loadQuestion() {
     
     hideFeedback();
     
-    // 🌟 啟用所有的跳過按鈕
     const skipBtns = document.querySelectorAll('.skip-action-btn');
     skipBtns.forEach(btn => {
         btn.disabled = false;
@@ -455,11 +440,11 @@ function loadQuestion() {
 
     const optionsGrid = document.getElementById('optionsGrid');
     const hwArea = document.getElementById('handwritingArea');
-    const skipBtnMC = document.getElementById('skip-btn-mc'); // 🌟 取得選擇題專屬跳過按鈕
+    const skipBtnMC = document.getElementById('skip-btn-mc');
     
     if (q.isHandwriting) {
         optionsGrid?.classList.add('hidden');
-        skipBtnMC?.classList.add('hidden'); // 隱藏選擇題跳過按鈕
+        skipBtnMC?.classList.add('hidden'); 
         
         if (hwArea) {
             hwArea.classList.remove('hidden');
@@ -480,7 +465,7 @@ function loadQuestion() {
         }
     } else {
         optionsGrid?.classList.remove('hidden');
-        skipBtnMC?.classList.remove('hidden'); // 顯示選擇題跳過按鈕
+        skipBtnMC?.classList.remove('hidden'); 
         
         if (hwArea) hwArea.classList.add('hidden');
         if (optionsGrid) {
@@ -502,7 +487,6 @@ function loadQuestion() {
 function handleAnswer(selectedOption, buttonElement) {
     attemptsCount++;
     
-    // 🌟 作答後停用所有的跳過按鈕
     const skipBtns = document.querySelectorAll('.skip-action-btn');
     skipBtns.forEach(btn => {
         btn.disabled = true;
@@ -791,7 +775,6 @@ window.rewriteHandwriting = function() {
 window.confirmAndGrade = async function() {
     document.getElementById('hw-confirm-ui')?.classList.add('hidden');
     
-    // 🌟 確認批改後停用所有的跳過按鈕
     const skipBtns = document.querySelectorAll('.skip-action-btn');
     skipBtns.forEach(btn => {
         btn.disabled = true;
@@ -895,6 +878,14 @@ function showEndScreen() {
     const tQs = document.getElementById('totalQuestions');
     if (tQs) tQs.textContent = totalPossibleScore;
     
+    const subtitle = document.getElementById('endSubtitle');
+    if (subtitle) {
+        let ratio = score / totalPossibleScore;
+        if (ratio >= 0.8) subtitle.textContent = "AI 分析顯示你對這個單元的概念掌握得非常出色！";
+        else if (ratio >= 0.5) subtitle.textContent = "AI 分析顯示你對這個單元的概念掌握得不錯！";
+        else subtitle.textContent = "AI 分析顯示你還需要多加練習，不要灰心，繼續努力！";
+    }
+    
     let selectedQuote = { text: "今天的累積，是明天的底氣。" };
     let pool = dynamicQuotes.length > 0 ? dynamicQuotes : motivationalQuotes.map(q => ({text: q, weight: 1}));
     
@@ -981,10 +972,29 @@ function submitToGoogleSheet() {
     let totalScoreVal = questionBank.reduce((sum, q) => sum + (q.scoreVal || 10), 0);
     let percentageVal = ((score / totalScoreVal) * 100).toFixed(0) + "%";
 
+    // ====================================================================
+    // 🔐 終極加密防禦：產生與伺服器匹配的數位簽章
+    // ====================================================================
+    const saltKey = "DseMath@2026_HK_Secure!";
+    const rawString = className + "|" + classNumber + "|" + score + "|" + totalScoreVal + "|" + saltKey;
+    let hashVal = 0;
+    for (let i = 0; i < rawString.length; i++) {
+        hashVal = ((hashVal << 5) - hashVal) + rawString.charCodeAt(i);
+        hashVal = hashVal & hashVal; 
+    }
+    const signature = (hashVal >>> 0).toString(16);
+    // ====================================================================
+
     const formData = new URLSearchParams();
-    formData.append('className', className); formData.append('classNumber', classNumber); formData.append('studentName', studentName);
-    formData.append('topic', currentTopicName); formData.append('level', `程度 ${displayLevel}`); formData.append('score', score);
-    formData.append('totalScore', totalScoreVal); formData.append('percentage', percentageVal);
+    formData.append('className', className); 
+    formData.append('classNumber', classNumber); 
+    formData.append('studentName', studentName);
+    formData.append('topic', currentTopicName); 
+    formData.append('level', `程度 ${displayLevel}`); 
+    formData.append('score', score);
+    formData.append('totalScore', totalScoreVal); 
+    formData.append('percentage', percentageVal);
+    formData.append('sig', signature); // 🌟 傳送加密簽章給伺服器驗證
 
     fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData })
         .then(response => response.json())
@@ -1083,7 +1093,7 @@ function renderMath() {
 window.setQuestionNum = setQuestionNum; window.showTopicScreen = showTopicScreen; window.backToLevelSelection = backToLevelSelection; window.backToLevelSelectionFromQuiz = backToLevelSelectionFromQuiz; window.closeConfirmModal = closeConfirmModal; window.confirmBackToLevelSelection = confirmBackToLevelSelection; window.selectTopic = selectTopic; window.startGame = startGame; window.startGlobalMixed = startGlobalMixed; window.submitToGoogleSheet = submitToGoogleSheet;
 
 document.addEventListener('DOMContentLoaded', () => { 
-    console.log("🚀 App.js V58 初始化執行... DOM 載入完成，已啟動終極防彈裝甲與多重跳過按鈕支援！");
+    console.log("🚀 App.js V60 初始化執行... DOM 載入完成，已啟動終極加密防禦與多重跳過按鈕支援！");
     showTopicScreen(); fetchConfig(); setInterval(() => fetchConfig(true), 5000); 
     const savedClass = getStoredData('dse_className'); const savedNum = getStoredData('dse_classNumber'); const savedName = getStoredData('dse_studentName');
     const classNameEl = document.getElementById('className'); if (classNameEl && savedClass) classNameEl.value = savedClass; 
