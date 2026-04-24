@@ -1,6 +1,6 @@
 // js/app.js
 
-console.log("App.js V64.1 成功載入！已更新功課區塊防呆機制與排版優化！");
+console.log("App.js V64.2 成功載入！已更新功課排版、修復日期顯示並新增綜合挑戰分數標籤！");
 
 // ==========================================
 // 🚨 老師設定區
@@ -97,7 +97,7 @@ async function fetchConfig(isSilent = false) {
     }
 }
 
-// 🌟 修改：功課區塊按鈕排版優化 (變為 3 欄，與下方自主練習一致)
+// 🌟 修改：功課區塊按鈕排版優化 (變為 3 欄，移除 Emoji，與下方自主練習一致)
 function renderHomeworkButtons() {
     const hwSection = document.getElementById('homeworkSection');
     const hwGrid = document.getElementById('homeworkGrid');
@@ -109,10 +109,15 @@ function renderHomeworkButtons() {
     if (hwSection) {
         hwSection.classList.remove('hidden'); // 🌟 功課區塊長駐不隱藏
         
-        // 更新提示文字，加入日期顯示
-        let pTag = hwSection.querySelector('p');
-        if (pTag && !pTag.innerHTML.includes('hw-date-display')) {
-            pTag.innerHTML = `老師已派發專屬功課！完成將會記錄明細成績（每份功課限交 2 次）<br><span id="hw-date-display" class="inline-block mt-3 font-bold text-amber-800 bg-amber-200 px-4 py-1.5 rounded-full shadow-sm">📅 今日日期：${dateString}</span>`;
+        // 🌟 修復日期載入 Bug：直接尋找 span 元素並更新，若沒有則重構
+        let dateSpan = document.getElementById('hw-date-display');
+        if (dateSpan) {
+            dateSpan.innerHTML = `📅 今日日期：${dateString}`;
+        } else {
+            let pTag = hwSection.querySelector('p');
+            if (pTag && !pTag.innerHTML.includes('hw-date-display')) {
+                pTag.innerHTML = `老師已派發專屬功課！完成將會記錄明細成績（每份功課限交 2 次）<br><span id="hw-date-display" class="inline-block mt-3 font-bold text-amber-800 bg-amber-200 px-4 py-1.5 rounded-full shadow-sm">📅 今日日期：${dateString}</span>`;
+            }
         }
     }
     
@@ -133,12 +138,11 @@ function renderHomeworkButtons() {
             // 計算這份功課的總題數
             let totalQs = dynamicHomeworkConfig.filter(c => c.hwName === hwName).reduce((sum, c) => sum + (c.qCount || 1), 0);
             
-            // 使用與自主練習相同尺寸的按鈕設計
+            // 🌟 修改：移除 emoji，按鈕設計與自主練習完全一致 (py-4 px-2)
             hwGrid.innerHTML += `
             <button onclick="startHomework('${hwName}')" class="py-4 px-2 border border-amber-300 rounded-xl hover:border-amber-400 hover:shadow-md hover:bg-amber-100 transition-all bg-white shadow-sm flex flex-col items-center justify-center group">
-                <span class="text-2xl mb-1 group-hover:scale-110 transition-transform">📚</span>
                 <span class="text-amber-800 font-bold text-sm sm:text-base">${hwName}</span>
-                <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md mt-1 border border-amber-100">共 ${totalQs} 題</span>
+                <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md mt-1 border border-amber-100">共 ${totalQs} 題 (每題 10 分)</span>
             </button>
             `;
         });
@@ -1336,13 +1340,32 @@ window.startHomework = startHomework;
 window.restartLevel = restartLevel;
 
 document.addEventListener('DOMContentLoaded', () => { 
-    console.log("🚀 App.js V64 初始化執行... DOM 載入完成，已同步 HTML 按鈕修復方案並增強偵錯日誌！");
+    console.log("🚀 App.js V64.2 初始化執行... DOM 載入完成！");
     
     // 🌟 寫入當前日期到功課區塊
     let d = new Date();
     let dateString = d.getFullYear() + "年" + (d.getMonth()+1) + "月" + d.getDate() + "日";
     let dateEl = document.getElementById('hw-date-display');
     if (dateEl) dateEl.innerHTML = `📅 今日日期：${dateString}`;
+
+    // 🌟 新增：為綜合挑戰加入不同程度的得分顯示
+    const globalBtns = document.querySelectorAll("button[onclick*='startGlobalMixed']");
+    globalBtns.forEach(btn => {
+        if (btn.innerHTML.includes('答對得')) return; // 避免重複加入
+        let levelMatch = btn.getAttribute('onclick').match(/startGlobalMixed\((\d)\)/);
+        if (levelMatch) {
+            let lvl = parseInt(levelMatch[1]);
+            let pts = 10;
+            if (lvl === 1) pts = 5;
+            else if (lvl === 2) pts = 8;
+            else if (lvl === 3) pts = 12;
+            else if (lvl === 4) pts = 15;
+            
+            let colorClass = lvl === 1 ? 'text-green-600 border-green-200' : (lvl === 2 ? 'text-blue-600 border-blue-200' : (lvl === 3 ? 'text-purple-600 border-purple-200' : 'text-orange-600 border-orange-200'));
+            
+            btn.innerHTML += `<div class="mt-2 text-xs font-bold bg-white px-2 py-0.5 rounded-md border shadow-sm ${colorClass}">🎯 答對得 ${pts} 分</div>`;
+        }
+    });
 
     showTopicScreen(); fetchConfig(); setInterval(() => fetchConfig(true), 5000); 
     const savedClass = getStoredData('dse_className'); const savedNum = getStoredData('dse_classNumber'); const savedName = getStoredData('dse_studentName');
