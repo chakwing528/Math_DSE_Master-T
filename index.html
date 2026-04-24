@@ -64,7 +64,7 @@
 
     <!-- 🌟 版本檢測雷達 -->
     <div class="fixed bottom-2 right-2 bg-slate-800 text-white text-xs px-2 py-1 rounded-md opacity-60 z-50 pointer-events-none">
-        V63.1
+        V64
     </div>
 
     <!-- 主容器 -->
@@ -89,13 +89,19 @@
             </div>
 
             <!-- ========================================== -->
-            <!-- 🌟 新增：班級專屬功課區塊 -->
+            <!-- 🌟 修改：班級專屬功課區塊 (常駐不隱藏，排版更新為3欄) -->
             <!-- ========================================== -->
-            <div id="homeworkSection" class="mb-12 hidden border-2 border-amber-200 bg-amber-50 rounded-2xl p-6 shadow-sm">
+            <div id="homeworkSection" class="mb-12 border-2 border-amber-200 bg-amber-50 rounded-2xl p-6 shadow-sm">
                 <h3 class="text-xl sm:text-2xl font-bold text-amber-700 mb-2 flex items-center justify-center gap-2">📝 班級專屬功課</h3>
-                <p class="text-amber-600 text-sm sm:text-base mb-6 font-medium">老師已派發專屬功課！完成將會記錄明細成績（每份功課限交 2 次）</p>
-                <div id="homeworkGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
-                    <!-- 動態生成功課按鈕 -->
+                <p class="text-amber-600 text-sm sm:text-base mb-6 font-medium text-center">
+                    老師已派發專屬功課！完成將會記錄明細成績（每份功課限交 2 次）<br>
+                    <span id="hw-date-display" class="inline-block mt-3 font-bold text-amber-800 bg-amber-200 px-4 py-1.5 rounded-full shadow-sm">📅 今日日期：載入中...</span>
+                </p>
+                <!-- 修改 grid 樣式，使其與下方自主練習排版一致 -->
+                <div id="homeworkGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <div class="col-span-full text-center py-6 text-amber-600 font-bold bg-amber-100/50 rounded-xl border border-amber-200 border-dashed">
+                        連線中，請稍候...
+                    </div>
                 </div>
             </div>
 
@@ -431,19 +437,19 @@
     </main>
 
     <!-- ========================================== -->
-    <!-- 🌟 強制破除快取 (v=63) 加上 defer 確保載入順序 -->
+    <!-- 🌟 強制破除快取 (v=64) 加上 defer 確保載入順序 -->
     <!-- ========================================== -->
-    <script src="js/utils.js?v=63" defer></script>
-    <script src="js/topics/indices.js?v=63" defer></script>
-    <script src="js/topics/factorization.js?v=63" defer></script>
-    <script src="js/topics/rounding.js?v=63" defer></script>
-    <script src="js/topics/identities.js?v=63" defer></script>
-    <script src="js/topics/fractions.js?v=63" defer></script>
-    <script src="js/topics/binary.js?v=63" defer></script>
-    <script src="js/topics/expansion.js?v=63" defer></script>
-    <script src="js/topics/algebraic_fractions_mul_div.js?v=63" defer></script>
-    <script src="js/topics/triangle_area.js?v=63" defer></script>
-    <script src="js/app.js?v=63" defer></script>
+    <script src="js/utils.js?v=64" defer></script>
+    <script src="js/topics/indices.js?v=64" defer></script>
+    <script src="js/topics/factorization.js?v=64" defer></script>
+    <script src="js/topics/rounding.js?v=64" defer></script>
+    <script src="js/topics/identities.js?v=64" defer></script>
+    <script src="js/topics/fractions.js?v=64" defer></script>
+    <script src="js/topics/binary.js?v=64" defer></script>
+    <script src="js/topics/expansion.js?v=64" defer></script>
+    <script src="js/topics/algebraic_fractions_mul_div.js?v=64" defer></script>
+    <script src="js/topics/triangle_area.js?v=64" defer></script>
+    <script src="js/app.js?v=64" defer></script>
 
 </body>
 </html>
