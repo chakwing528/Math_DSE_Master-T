@@ -1,6 +1,6 @@
 // js/app.js
 
-console.log("App.js V69 成功載入！已啟動終極安全防護與今日排行榜次數顯示！");
+console.log("App.js V69 成功載入！已啟動終極安全防護與今日排行榜次數顯示！(支援大小寫忽略)");
 
 // ==========================================
 // 🚨 老師設定區
@@ -974,10 +974,14 @@ window.confirmAndGrade = async function() {
         tempDiv.innerHTML = correctOpt.text;
         let standardAns = tempDiv.textContent || tempDiv.innerText;
         
+        // 🌟 核心修改：將學生答案與標準答案全部轉為小寫，確保英文字母大小寫一致即視為正確
+        let studentLatexForGrading = currentRecognizedLaTeX.toLowerCase();
+        let standardAnsForGrading = standardAns.toLowerCase();
+        
         const formData = new URLSearchParams(); 
         formData.append('action', 'ai_grade');
-        formData.append('studentLatex', currentRecognizedLaTeX);
-        formData.append('standardAns', standardAns);
+        formData.append('studentLatex', studentLatexForGrading);
+        formData.append('standardAns', standardAnsForGrading);
 
         const result = await fetchWithRetry(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
         if (!result.success) throw new Error(result.message);
