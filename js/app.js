@@ -1,6 +1,6 @@
 // js/app.js
 
-console.log("App.js V66 成功載入！已啟動終極安全防護：UUID 防重播、時間驗證與防連按鎖！");
+console.log("App.js V69 成功載入！已啟動終極安全防護與今日排行榜次數顯示！");
 
 // ==========================================
 // 🚨 老師設定區
@@ -191,7 +191,8 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
     globalLeaderboard.slice(0, 20).forEach((student, index) => {
         let rankIcon = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `<span class="inline-block w-6 text-center text-slate-400 font-bold text-sm">${index + 1}.</span>`));
         
-        html += `<div class="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md"><div class="flex items-center gap-3">${rankIcon}<span class="font-bold text-slate-700 text-base">${student.className} (${student.classNum}) ${student.studentName}</span></div><div class="text-indigo-600 font-bold text-base">${student.totalScore} 分</div></div>`;
+        // 🌟 更新：在首頁排行榜的分數下方，加入「今日: X 次」顯示
+        html += `<div class="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md"><div class="flex items-center gap-3">${rankIcon}<span class="font-bold text-slate-700 text-base">${student.className} (${student.classNum}) ${student.studentName}</span></div><div class="text-right flex flex-col justify-center"><span class="text-indigo-600 font-bold text-base">${student.totalScore} 分</span><span class="text-slate-400 font-bold text-[11px] mt-0.5">今日: ${student.playCountToday || 0} 次</span></div></div>`;
     });
     html += '</div>';
 
@@ -201,7 +202,8 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
     globalLeaderboard.slice(0, 20).forEach((student, index) => {
         let rankIcon = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `<span class="inline-block w-6 text-center text-slate-400 font-bold text-sm">${index + 1}.</span>`));
         
-        endHtml += `<div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md"><div class="flex items-center gap-2">${rankIcon}<span class="font-bold text-slate-700 text-sm sm:text-base">${student.className} (${student.classNum}) ${student.studentName}</span></div><div class="text-indigo-600 font-bold text-sm sm:text-base">${student.totalScore} 分</div></div>`;
+        // 🌟 更新：在結算畫面排行榜的分數下方，加入「今日: X 次」顯示
+        endHtml += `<div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md"><div class="flex items-center gap-2">${rankIcon}<span class="font-bold text-slate-700 text-sm sm:text-base">${student.className} (${student.classNum}) ${student.studentName}</span></div><div class="text-right flex flex-col justify-center"><span class="text-indigo-600 font-bold text-sm sm:text-base">${student.totalScore} 分</span><span class="text-slate-400 font-bold text-[10px] mt-0.5">今日: ${student.playCountToday || 0} 次</span></div></div>`;
     });
     endHtml += '</div>';
     if (endContainer) endContainer.innerHTML = endHtml;
@@ -1354,7 +1356,7 @@ window.startHomework = startHomework;
 window.restartLevel = restartLevel;
 
 document.addEventListener('DOMContentLoaded', () => { 
-    console.log("🚀 App.js V66 初始化執行... DOM 載入完成！防護系統就緒！");
+    console.log("🚀 App.js V69 初始化執行... DOM 載入完成！防護系統就緒！");
     
     const globalBtns = document.querySelectorAll("button[onclick*='startGlobalMixed']");
     globalBtns.forEach(btn => {
