@@ -1,6 +1,6 @@
 // js/app.js
 
-console.log("App.js V69 成功載入！已啟動終極安全防護與今日排行榜次數顯示！(支援大小寫忽略)");
+console.log("App.js V70 成功載入！已修復暫存紀錄與學號0的排行榜配對問題！");
 
 // ==========================================
 // 🚨 老師設定區
@@ -172,7 +172,6 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
     
     const currentUserClass = String(overrideClass || getStoredData('dse_className')).toUpperCase().trim();
     const currentUserNum = String(overrideNum || getStoredData('dse_classNumber')).trim();
-    const currentUserName = String(getStoredData('dse_studentName')).trim();
 
     let userRank = -1;
     let userScore = 0;
@@ -182,12 +181,11 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
     globalLeaderboard.forEach((student, index) => {
         const sClass = String(student.className).toUpperCase().trim();
         const sNum = String(student.classNum).trim();
-        const sName = String(student.studentName).trim();
         
         let isMatch = (sClass === currentUserClass && sNum === currentUserNum);
         
-        // 🌟 防呆修正：後端傳來的空值若對應到學號 0，透過姓名雙重驗證
-        if (!isMatch && sClass === currentUserClass && sNum === "" && currentUserNum === "0" && sName === currentUserName) {
+        // 🌟 核心防呆修正：後端傳來的空值若對應到學號 0，直接比對班別與學號即可，不依賴姓名 (徹底解決 Nickname 衝突導致未上榜)
+        if (!isMatch && sClass === currentUserClass && sNum === "" && currentUserNum === "0") {
             isMatch = true;
         }
 
@@ -221,7 +219,6 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
     let myRankHtml = '';
     if (currentUserClass && currentUserNum) {
         if (userRank !== -1) {
-            // 🌟 修正：在專屬排名框內，同步顯示今日提交次數
             myRankHtml = `<div class="bg-[#FFF3C4] border border-[#FDE68A] p-4 rounded-xl flex justify-between items-center shadow-sm mb-6">
                 <span class="font-bold text-amber-800 text-base flex items-center gap-2"><span class="text-xl">👉</span> 你的目前排名：第 ${userRank} 名</span>
                 <div class="text-right flex flex-col justify-center">
@@ -1399,7 +1396,7 @@ window.startHomework = startHomework;
 window.restartLevel = restartLevel;
 
 document.addEventListener('DOMContentLoaded', () => { 
-    console.log("🚀 App.js V69 初始化執行... DOM 載入完成！防護系統就緒！");
+    console.log("🚀 App.js V70 初始化執行... 暫存機制修復完成！");
     
     const globalBtns = document.querySelectorAll("button[onclick*='startGlobalMixed']");
     globalBtns.forEach(btn => {
@@ -1421,16 +1418,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     showTopicScreen(); fetchConfig(); setInterval(() => fetchConfig(true), 5000); 
     
-    // 載入暫存
-    const savedClass = getStoredData('dse_className'); const savedNum = getStoredData('dse_classNumber'); const savedName = getStoredData('dse_studentName');
-    const classNameEl = document.getElementById('className'); if (classNameEl && savedClass) classNameEl.value = savedClass; 
-    const classNumEl = document.getElementById('classNumber'); if (classNumEl && savedNum) classNumEl.value = savedNum; 
-    const studentNameEl = document.getElementById('studentName'); if (studentNameEl && savedName) studentNameEl.value = savedName;
+    // 🌟 核心修復：載入並自動填入暫存資料
+    const savedClass = getStoredData('dse_className'); 
+    const savedNum = getStoredData('dse_classNumber'); 
+    const savedName = getStoredData('dse_studentName');
     
-    // 🌟 新增：即時監聽輸入並更新暫存與排名顯示
-    classNameEl?.addEventListener('input', (e) => { setStoredData('dse_className', e.target.value.toUpperCase().trim()); renderLeaderboards(); });
-    classNumEl?.addEventListener('input', (e) => { setStoredData('dse_classNumber', e.target.value.trim()); renderLeaderboards(); });
-    studentNameEl?.addEventListener('input', (e) => { setStoredData('dse_studentName', e.target.value.trim()); renderLeaderboards(); });
+    const classNameEl = document.getElementById('className'); 
+    if (classNameEl && savedClass) classNameEl.value = savedClass; 
+    
+    const classNumEl = document.getElementById('classNumber'); 
+    if (classNumEl && savedNum) classNumEl.value = savedNum; 
+    
+    const studentNameEl = document.getElementById('studentName'); 
+    if (studentNameEl && savedName) studentNameEl.value = savedName;
+    
+    // 🌟 核心修復：統一即時監聽輸入與變化，解決手機「自動填寫」漏寫入的問題
+    const updateStorageAndRank = () => {
+        if (classNameEl) setStoredData('dse_className', classNameEl.value.toUpperCase().trim());
+        if (classNumEl) setStoredData('dse_classNumber', classNumEl.value.trim());
+        if (studentNameEl) setStoredData('dse_studentName', studentNameEl.value.trim());
+        renderLeaderboards();
+    };
+
+    classNameEl?.addEventListener('input', updateStorageAndRank);
+    classNumEl?.addEventListener('input', updateStorageAndRank);
+    studentNameEl?.addEventListener('input', updateStorageAndRank);
+    // 加入 change 事件，捕獲瀏覽器的自動填寫 (Auto-fill) 或直接貼上
+    classNameEl?.addEventListener('change', updateStorageAndRank);
+    classNumEl?.addEventListener('change', updateStorageAndRank);
+    studentNameEl?.addEventListener('change', updateStorageAndRank);
 
     setupCanvasEvents();
 });
