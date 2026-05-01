@@ -1073,9 +1073,10 @@ async function startRecognitionPhase() {
         let existingWarning = document.getElementById('model-warning-ocr');
         if (existingWarning) existingWarning.remove();
 
-        if (result.usedModel && result.usedModel !== "gemini-2.5-pro") {
+// 🌟 更新：將 mathpix-v3 加入白名單，成功使用時不再顯示降級警告
+        if (result.usedModel && result.usedModel !== "gemini-2.5-pro" && result.usedModel !== "mathpix-v3") {
             const debugText = result.debugInfo ? `<br><span class="text-xs font-normal text-red-500 text-left block mt-1">🔍 偵錯紀錄: ${result.debugInfo}</span>` : "";
-            const warningHtml = `<div id="model-warning-ocr" class="w-full max-w-sm bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg mb-3 text-sm font-bold shadow-sm">⚠️ 注意：Gemini 2.5 Pro 呼叫失敗，已降級使用「${result.usedModel}」。${debugText}</div>`;
+            const warningHtml = `<div id="model-warning-ocr" class="w-full max-w-sm bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg mb-3 text-sm font-bold shadow-sm">⚠️ 注意：AI 呼叫失敗，已降級使用「${result.usedModel}」。${debugText}</div>`;
             if (mathDiv) mathDiv.insertAdjacentHTML('beforebegin', warningHtml);
         }
 
