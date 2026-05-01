@@ -1503,26 +1503,40 @@ function showEndScreen() {
     if (rewardContainer) {
         rewardContainer.classList.remove('hidden');
         rewardContainer.innerHTML = `
-            <div id="rewardZone" class="w-full bg-white border border-slate-200 rounded-xl p-5 sm:p-6 shadow-sm relative overflow-hidden transition-all duration-500 text-left">
+            <div id="rewardZone" class="w-full bg-white border border-slate-200 rounded-2xl p-5 sm:p-7 shadow-sm relative overflow-hidden transition-all duration-500 text-left">
                 <div id="progressUI" class="block transition-opacity duration-500">
                     <div class="flex justify-between items-center mb-4">
                         <span class="font-bold text-slate-700 text-lg flex items-center gap-2">🎁 刮刮卡解鎖進度</span>
-                        <span class="text-sm font-bold text-indigo-800 bg-indigo-100 px-3 py-1 rounded-lg" id="progressTextUI">${currentProgress} / 100</span>
+                        <span class="text-sm font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-lg tabular-nums" id="progressTextUI">${currentProgress} / 100</span>
                     </div>
                     <div class="w-full bg-slate-100 rounded-full h-4 mb-3 overflow-hidden shadow-inner relative">
-                        <div id="progressBarFill" class="bg-indigo-500 h-4 rounded-full transition-all duration-1000 ease-out relative" style="width: ${currentProgress}%"></div>
+                        <div id="progressBarFill" class="grad-primary h-4 rounded-full transition-all duration-1000 ease-out relative" style="width: ${currentProgress}%"></div>
                     </div>
                     <div class="text-sm text-slate-500 text-center font-medium" id="progressHint">
-                        還差 <span class="text-indigo-600 font-bold">${nextThresholdDist} 分</span> 即可獲得抽獎機會！傳送成績後更新進度。
+                        還差 <span class="text-indigo-600 font-bold tabular-nums">${nextThresholdDist} 分</span> 即可獲得抽獎機會！傳送成績後更新進度。
                     </div>
                 </div>
 
                 <div id="scratchUI" class="hidden opacity-0 transition-opacity duration-500">
-                    <div class="relative w-full h-20 sm:h-24 rounded-xl overflow-hidden border-2 border-amber-200 shadow-sm" style="touch-action:none;">
-                        <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-r from-amber-50 to-orange-50 text-orange-600 font-bold px-4 text-center text-sm sm:text-base">🎁 <span id="rewardTextDisplay"></span></div>
+                    <!-- 🎯 大型刮刮卡：高度從 h-20/h-24 → h-44/h-52（翻倍）-->
+                    <div id="scratchFrame" class="relative w-full h-44 sm:h-52 rounded-2xl overflow-hidden shadow-xl border-2 border-amber-300 diamond-pattern" style="touch-action:none; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%);">
+                        <!-- 獎勵內容層 -->
+                        <div class="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+                            <div class="text-amber-600 text-[11px] sm:text-xs font-bold tracking-[0.3em] mb-2 sm:mb-3 uppercase">🎁 你 的 獎 勵</div>
+                            <div id="rewardTextDisplay" class="text-3xl sm:text-4xl font-black text-grad-gold leading-tight" style="text-shadow: 0 2px 6px rgba(180, 83, 9, 0.18);"></div>
+                            <div class="text-amber-500 text-xs sm:text-sm font-bold tracking-widest mt-2 sm:mt-3">★ ★ ★</div>
+                        </div>
+                        <!-- 刮刮塗層 -->
                         <canvas id="scratchCanvas" class="absolute inset-0 w-full h-full z-10 cursor-pointer"></canvas>
+                        <!-- 揭曉時的光環容器 -->
+                        <div id="rewardBurstContainer" class="absolute inset-0 z-20 pointer-events-none"></div>
                     </div>
-                    <div class="text-xs sm:text-sm text-amber-600 mt-3 text-center font-bold animate-pulse">✨ 恭喜達成滿百目標，快刮開上方塗層看看！✨</div>
+                    <!-- 提示文字 -->
+                    <div class="text-sm sm:text-base text-amber-700 mt-4 text-center font-bold flex items-center justify-center gap-2">
+                        <span class="inline-block animate-pulse text-lg">✨</span>
+                        <span>恭喜達成滿百目標，快用手指刮開驚喜！</span>
+                        <span class="inline-block animate-pulse text-lg">✨</span>
+                    </div>
                 </div>
             </div>
         `;
@@ -1747,6 +1761,13 @@ function renderScratchCard() {
     const canvas = document.getElementById('scratchCanvas');
     if (!canvas) return;
 
+    // 啟動「即將解鎖」鋪陳：外框光暈脈衝 1.4 秒
+    const frame = document.getElementById('scratchFrame');
+    if (frame) {
+        frame.classList.add('glow-pulse');
+        setTimeout(() => { frame.classList.remove('glow-pulse'); }, 1400);
+    }
+
     // 重置可見性
     canvas.style.opacity = '1';
     canvas.style.display = 'block';
@@ -1756,44 +1777,103 @@ function renderScratchCard() {
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
 
-    // 🌟 漸變金箔覆蓋層
-    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, '#fde68a');
-    gradient.addColorStop(0.35, '#f59e0b');
-    gradient.addColorStop(0.7, '#d97706');
-    gradient.addColorStop(1, '#92400e');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const W = canvas.width, H = canvas.height;
 
-    // 金箔光澤紋理
-    for (let i = 0; i < 45; i++) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.18})`;
+    // 🌟 漸變金箔覆蓋層（更豐富的色階）
+    const gradient = ctx.createLinearGradient(0, 0, W, H);
+    gradient.addColorStop(0,    '#fef3c7');
+    gradient.addColorStop(0.25, '#fbbf24');
+    gradient.addColorStop(0.55, '#f59e0b');
+    gradient.addColorStop(0.8,  '#d97706');
+    gradient.addColorStop(1,    '#92400e');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, W, H);
+
+    // 對角線光澤條紋（金屬質感）
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    for (let i = -H; i < W + H; i += 22) {
+        const stripeGrad = ctx.createLinearGradient(i, 0, i + 14, H);
+        stripeGrad.addColorStop(0,   'rgba(255,255,255,0)');
+        stripeGrad.addColorStop(0.5, 'rgba(255,255,255,0.85)');
+        stripeGrad.addColorStop(1,   'rgba(255,255,255,0)');
+        ctx.fillStyle = stripeGrad;
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i + 14, 0);
+        ctx.lineTo(i + 14 + H, H);
+        ctx.lineTo(i + H, H);
+        ctx.closePath();
+        ctx.fill();
+    }
+    ctx.restore();
+
+    // 金箔光斑紋理（密度提升至 70 + 大小變化更廣）
+    for (let i = 0; i < 70; i++) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.22})`;
         ctx.beginPath();
         ctx.arc(
-            Math.random() * canvas.width,
-            Math.random() * canvas.height,
-            Math.random() * 6 + 1,
+            Math.random() * W,
+            Math.random() * H,
+            Math.random() * 9 + 1,
             0, Math.PI * 2
         );
         ctx.fill();
     }
 
-    // 中央提示文字
-    ctx.font = 'bold 17px sans-serif';
-    ctx.fillStyle = '#fff';
+    // 點綴小星星
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+    for (let i = 0; i < 8; i++) {
+        const x = Math.random() * W;
+        const y = Math.random() * H;
+        const s = Math.random() * 3 + 2;
+        ctx.beginPath();
+        for (let j = 0; j < 5; j++) {
+            const a = (Math.PI * 2 * j) / 5 - Math.PI / 2;
+            const px = x + Math.cos(a) * s;
+            const py = y + Math.sin(a) * s;
+            if (j === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            const a2 = a + Math.PI / 5;
+            ctx.lineTo(x + Math.cos(a2) * s * 0.45, y + Math.sin(a2) * s * 0.45);
+        }
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // 中央提示文字（字體放大至 28px，加雙重描邊與更深陰影）
+    const isMobile = W < 380;
+    const fontSize = isMobile ? 22 : 28;
+    ctx.font = `900 ${fontSize}px 'Inter', 'Noto Sans HK', sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(120, 53, 15, 0.6)';
-    ctx.shadowBlur = 6;
-    ctx.shadowOffsetY = 1;
-    ctx.fillText('✨ 用手指刮開驚喜 ✨', canvas.width / 2, canvas.height / 2);
+
+    const cx = W / 2, cy = H / 2;
+    const mainText = '✨ 用手指刮開驚喜 ✨';
+
+    // 深色描邊
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = 'rgba(120, 53, 15, 0.7)';
+    ctx.lineJoin = 'round';
+    ctx.strokeText(mainText, cx, cy);
+
+    // 主體文字（白色 + 陰影）
+    ctx.shadowColor = 'rgba(120, 53, 15, 0.7)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(mainText, cx, cy);
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
+
+    // 副提示文字（小字）
+    ctx.font = `700 ${isMobile ? 11 : 13}px 'Inter', 'Noto Sans HK', sans-serif`;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.fillText('SCRATCH TO REVEAL', cx, cy + fontSize * 0.95);
 
     // 設置刮除模式
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
-    ctx.lineWidth = 38;
+    ctx.lineWidth = 44;
     ctx.globalCompositeOperation = 'destination-out';
 
     let isDrawing = false;
@@ -1828,15 +1908,50 @@ function renderScratchCard() {
         if (navigator.vibrate) {
             try { navigator.vibrate([80, 40, 80, 40, 200]); } catch (e) {}
         }
-        canvas.style.transition = 'opacity 0.7s ease-out';
+        // 1. 金箔淡出
+        canvas.style.transition = 'opacity 0.6s ease-out';
         canvas.style.opacity = '0';
+
+        // 2. 光環擴散（從中心爆發）
+        const burstContainer = document.getElementById('rewardBurstContainer');
+        if (burstContainer) {
+            burstContainer.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const ring = document.createElement('div');
+                ring.className = 'ring-burst';
+                ring.style.animationDelay = (i * 0.12) + 's';
+                burstContainer.appendChild(ring);
+            }
+            setTimeout(() => { burstContainer.innerHTML = ''; }, 1300);
+        }
+
+        // 3. 獎勵文字彈跳浮現
+        const rewardText = document.getElementById('rewardTextDisplay');
+        if (rewardText) {
+            rewardText.classList.remove('reveal-bounce');
+            void rewardText.offsetWidth;
+            rewardText.classList.add('reveal-bounce');
+        }
+
+        // 4. 卡框金色光暈強化
+        const frame = document.getElementById('scratchFrame');
+        if (frame) {
+            frame.style.transition = 'box-shadow 0.6s ease-out, border-color 0.6s ease-out';
+            frame.style.boxShadow = '0 0 0 4px rgba(251, 191, 36, 0.4), 0 18px 50px -8px rgba(245, 158, 11, 0.55)';
+            frame.style.borderColor = '#f59e0b';
+        }
+
+        // 5. 彩屑爆發
         spawnConfetti();
+
+        // 6. 整個區塊輕微縮放彈跳
         const rewardZone = document.getElementById('rewardZone');
         if (rewardZone) {
-            rewardZone.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
-            rewardZone.style.transform = 'scale(1.04)';
-            setTimeout(() => { rewardZone.style.transform = 'scale(1)'; }, 450);
+            rewardZone.style.transition = 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            rewardZone.style.transform = 'scale(1.03)';
+            setTimeout(() => { rewardZone.style.transform = 'scale(1)'; }, 550);
         }
+
         setTimeout(() => { canvas.style.display = 'none'; }, 800);
     }
 
@@ -1880,11 +1995,11 @@ function renderScratchCard() {
     };
 }
 
-// 🎉 刮刮卡完全揭開時的彩屑爆發效果
+// 🎉 刮刮卡完全揭開時的彩屑爆發效果（升級：更多顆粒 + 三種形狀 + 雙波次）
 function spawnConfetti() {
     const container = document.getElementById('rewardZone');
     if (!container) return;
-    const colors = ['#fbbf24', '#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#a855f7', '#ec4899', '#facc15'];
+    const colors = ['#fbbf24', '#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#a855f7', '#ec4899', '#facc15', '#06b6d4'];
     const scratchUI = document.getElementById('scratchUI');
     const containerRect = container.getBoundingClientRect();
     let originX = container.offsetWidth / 2;
@@ -1894,37 +2009,56 @@ function spawnConfetti() {
         originX = sRect.left - containerRect.left + sRect.width / 2;
         originY = sRect.top - containerRect.top + sRect.height / 2;
     }
-    for (let i = 0; i < 45; i++) {
-        const piece = document.createElement('div');
-        const w = 6 + Math.random() * 6;
-        piece.style.cssText = `
-            position: absolute;
-            width: ${w}px;
-            height: ${w * 0.4}px;
-            background: ${colors[Math.floor(Math.random() * colors.length)]};
-            top: ${originY}px;
-            left: ${originX}px;
-            border-radius: 1px;
-            pointer-events: none;
-            z-index: 50;
-            transform: translate(-50%, -50%);
-        `;
-        container.appendChild(piece);
-        const angle = Math.random() * Math.PI * 2;
-        const distance = 70 + Math.random() * 200;
-        const tx = Math.cos(angle) * distance;
-        const ty = Math.sin(angle) * distance + 60;
-        const rotation = (Math.random() - 0.5) * 1080;
-        piece.animate([
-            { transform: 'translate(-50%, -50%) rotate(0deg)', opacity: 1 },
-            { transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) rotate(${rotation}deg)`, opacity: 0 }
-        ], {
-            duration: 1400 + Math.random() * 700,
-            easing: 'cubic-bezier(0.15, 0.55, 0.35, 1)',
-            fill: 'forwards'
-        });
-        setTimeout(() => piece.remove(), 2300);
+
+    function makeBatch(count, delay, sizeMul) {
+        setTimeout(() => {
+            for (let i = 0; i < count; i++) {
+                const piece = document.createElement('div');
+                const shape = Math.random();
+                const baseW = (6 + Math.random() * 7) * sizeMul;
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                let extra = '';
+                if (shape < 0.5) {
+                    // 長條形彩帶
+                    extra = `width:${baseW}px;height:${baseW * 0.35}px;background:${color};border-radius:1px;`;
+                } else if (shape < 0.85) {
+                    // 圓點
+                    extra = `width:${baseW * 0.7}px;height:${baseW * 0.7}px;background:${color};border-radius:50%;`;
+                } else {
+                    // 星形（用 clip-path）
+                    extra = `width:${baseW}px;height:${baseW}px;background:${color};clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);`;
+                }
+                piece.style.cssText = `
+                    position: absolute;
+                    top: ${originY}px;
+                    left: ${originX}px;
+                    pointer-events: none;
+                    z-index: 50;
+                    transform: translate(-50%, -50%);
+                    ${extra}
+                `;
+                container.appendChild(piece);
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 80 + Math.random() * 240;
+                const tx = Math.cos(angle) * distance;
+                const ty = Math.sin(angle) * distance + 80;
+                const rotation = (Math.random() - 0.5) * 1440;
+                piece.animate([
+                    { transform: 'translate(-50%, -50%) rotate(0deg) scale(1)', opacity: 1 },
+                    { transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) rotate(${rotation}deg) scale(0.6)`, opacity: 0 }
+                ], {
+                    duration: 1500 + Math.random() * 900,
+                    easing: 'cubic-bezier(0.15, 0.55, 0.35, 1)',
+                    fill: 'forwards'
+                });
+                setTimeout(() => piece.remove(), 2500);
+            }
+        }, delay);
     }
+
+    // 雙波次彩屑：第一波大量爆發，第二波輕量補充
+    makeBatch(60, 0,   1.0);
+    makeBatch(25, 220, 0.75);
 }
 
 function renderMath() {
