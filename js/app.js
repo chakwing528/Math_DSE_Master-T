@@ -762,7 +762,7 @@ function loadQuestion() {
             const kbInput = document.getElementById('keyboard-math-input');
             if (kbInput) kbInput.value = ""; 
 
-            switchInputMode('keyboard');
+            switchInputMode('draw');
             setTimeout(() => { resizeCanvas(); initCanvas(); }, 50);
         }
     } else {
