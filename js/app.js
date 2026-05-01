@@ -1,6 +1,6 @@
 // js/app.js
 
-console.log("App.js V70 成功載入！已修復暫存紀錄與學號0的排行榜配對問題！");
+console.log("App.js V71 成功載入！已啟動強制登入認證系統、終極安全防護與今日次數顯示！(支援大小寫忽略)");
 
 // ==========================================
 // 🚨 老師設定區
@@ -51,11 +51,140 @@ let topicScores = {}; // 追蹤各課題的分數明細
 let quizStartTime = 0;
 let quizTimeTaken = 0;
 let sessionNonce = "";
+let quizIntegrity = { seed: "", chain: "", events: [] };
 
 let currentRecognizedLaTeX = "";
 
 function getStoredData(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
 function setStoredData(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+
+// ==========================================
+// 🌟 核心：動態生成登入介面與強制登入邏輯
+// ==========================================
+function initLoginUI() {
+    if (document.getElementById('loginScreen')) return;
+    const mainWrapper = document.getElementById('main-wrapper') || document.body;
+    const loginDiv = document.createElement('div');
+    loginDiv.innerHTML = `
+    <div id="loginScreen" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-10 text-center max-w-lg mx-auto mt-8 z-50">
+        <div class="flex justify-center items-center gap-3 mb-6">
+            <div class="bg-indigo-100 text-indigo-500 p-3 rounded-full">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            </div>
+            <h1 class="text-3xl font-bold text-slate-800">修練所登入</h1>
+        </div>
+        <p class="text-slate-500 mb-8 font-medium">請輸入班別、學號與密碼以進行認證</p>
+        <div class="space-y-4 text-left mb-8">
+            <div><label class="block text-sm font-bold text-slate-600 mb-1">班別</label><input type="text" id="loginClass" class="w-full p-3 border border-slate-300 rounded-lg uppercase"></div>
+            <div><label class="block text-sm font-bold text-slate-600 mb-1">學號</label><input type="number" id="loginNum" class="w-full p-3 border border-slate-300 rounded-lg"></div>
+            <div><label class="block text-sm font-bold text-slate-600 mb-1">密碼</label><input type="password" id="loginPwd" class="w-full p-3 border border-slate-300 rounded-lg"></div>
+        </div>
+        <button id="loginSubmitBtn" onclick="loginApp()" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-md text-lg">進入修練所 ➡️</button>
+    </div>`;
+    mainWrapper.prepend(loginDiv.firstElementChild);
+
+    const topicScreen = document.getElementById('topicScreen');
+    if (topicScreen && !document.getElementById('logoutBtn')) {
+        const logoutHTML = `<div class="flex justify-end mb-2"><button id="logoutBtn" onclick="logoutApp()" class="text-sm text-slate-400 hover:text-red-500 font-bold underline transition-colors">登出更換帳號</button></div>`;
+        topicScreen.insertAdjacentHTML('afterbegin', logoutHTML);
+    }
+}
+
+window.loginApp = async function() {
+    const cClass = document.getElementById('loginClass')?.value.toUpperCase().trim();
+    const cNum = document.getElementById('loginNum')?.value.trim();
+    const cPwd = document.getElementById('loginPwd')?.value.trim() || "";
+
+    if (!cClass || !cNum) {
+        alert("請填寫班別與學號！");
+        return;
+    }
+
+    const btn = document.getElementById('loginSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = "驗證中..."; }
+
+    try {
+        const formData = new URLSearchParams();
+        formData.append('action', 'verify_login');
+        formData.append('className', cClass);
+        formData.append('classNumber', cNum);
+        formData.append('password', cPwd);
+
+        const result = await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData }).then(r => r.json());
+
+        if (!result.success) {
+            alert(result.message || "登入失敗，請再試。");
+            if (btn) { btn.disabled = false; btn.textContent = "進入修練所 ➡️"; }
+            return;
+        }
+
+        // 🌟 姓名直接從後端 Google Sheet 取得，不再需要學生輸入
+        setStoredData('dse_className', cClass);
+        setStoredData('dse_classNumber', cNum);
+        setStoredData('dse_studentName', result.studentName || "");
+        setStoredData('dse_password', cPwd);
+
+        showTopicScreen();
+        renderLeaderboards();
+    } catch (err) {
+        alert("網路連線失敗，請檢查網路後再試。");
+        if (btn) { btn.disabled = false; btn.textContent = "進入修練所 ➡️"; }
+    }
+};
+
+window.logoutApp = function() {
+    if(confirm("確定要登出並清除目前的帳號資料嗎？")) {
+        setStoredData('dse_className', '');
+        setStoredData('dse_classNumber', '');
+        setStoredData('dse_studentName', '');
+        setStoredData('dse_password', '');
+        location.reload();
+    }
+};
+
+function showTopicScreen() {
+    initLoginUI(); // 確保登入介面已生成
+    
+    const savedClass = getStoredData('dse_className');
+    const savedNum = getStoredData('dse_classNumber');
+    const savedName = getStoredData('dse_studentName');
+    
+    document.getElementById('startScreen')?.classList.add('hidden');
+    document.getElementById('appContainer')?.classList.add('hidden');
+    document.getElementById('endScreen')?.classList.add('hidden');
+    
+    const topicScreen = document.getElementById('topicScreen');
+    
+    // 🌟 只要有班別與學號，就允許進入選單
+    if (!savedClass || !savedNum) {
+        // 未登入：強制顯示登入畫面，隱藏主畫面
+        document.getElementById('loginScreen')?.classList.remove('hidden');
+        topicScreen?.classList.add('hidden');
+    } else {
+        // 已登入：隱藏登入畫面，顯示主畫面
+        document.getElementById('loginScreen')?.classList.add('hidden');
+        topicScreen?.classList.remove('hidden');
+        
+        // 🌟 新增：在主選單左上角動態加入學生資訊 Badge
+        if (topicScreen) {
+            topicScreen.classList.add('relative'); // 確保可以絕對定位
+            let infoBadge = document.getElementById('student-info-badge');
+            if (!infoBadge) {
+                infoBadge = document.createElement('div');
+                infoBadge.id = 'student-info-badge';
+                // 使用 Tailwind CSS 設定左上角絕對定位與樣式
+                infoBadge.className = 'absolute top-4 left-4 sm:top-6 sm:left-6 bg-indigo-50 border border-indigo-200 text-indigo-800 px-3 py-1.5 rounded-lg text-sm sm:text-base font-bold shadow-sm flex items-center gap-2 z-10';
+                topicScreen.appendChild(infoBadge);
+            }
+            // 寫入學生資料
+            infoBadge.innerHTML = `<span>🎓 ${savedClass} 班 - ${savedNum} 號 (${savedName})</span>`;
+        }
+        
+        // 更新結算畫面顯示身分
+        const identityEl = document.getElementById('submitIdentityInfo');
+        if (identityEl) identityEl.textContent = `${savedClass} 班 - ${savedNum} 號 (${savedName})`;
+    }
+}
 
 async function fetchConfig(isSilent = false) {
     if (isFetchingLock) return; 
@@ -65,7 +194,7 @@ async function fetchConfig(isSilent = false) {
             const response = await fetch(cacheBusterUrl);
             const data = await response.json();
             
-            console.log("📥 從伺服器收到的 JSON 資料：", data);
+            if (!isSilent) console.log("📥 從伺服器收到的 JSON 資料：", data);
             
             if (data && data.leaderboard) {
                 const newHash = JSON.stringify(data.leaderboard);
@@ -82,7 +211,6 @@ async function fetchConfig(isSilent = false) {
             if (data.topicConfig) dynamicTopicConfig = data.topicConfig;
             if (data.quotes) dynamicQuotes = data.quotes;
             
-            // 🌟 接收並渲染功課清單
             if (data.homeworkConfig) {
                 dynamicHomeworkConfig = data.homeworkConfig;
             } else {
@@ -102,17 +230,15 @@ async function fetchConfig(isSilent = false) {
     }
 }
 
-// 🌟 功課區塊按鈕排版優化 (變為 3 欄，移除 Emoji，與下方自主練習一致)
 function renderHomeworkButtons() {
     const hwSection = document.getElementById('homeworkSection');
     const hwGrid = document.getElementById('homeworkGrid');
     
-    // 取得今天日期
     let d = new Date();
     let dateString = d.getFullYear() + "年" + (d.getMonth()+1) + "月" + d.getDate() + "日";
 
     if (hwSection) {
-        hwSection.classList.remove('hidden'); // 功課區塊長駐不隱藏
+        hwSection.classList.remove('hidden'); 
         
         let dateSpan = document.getElementById('hw-date-display');
         if (dateSpan) {
@@ -126,23 +252,19 @@ function renderHomeworkButtons() {
     }
     
     if (!dynamicHomeworkConfig || dynamicHomeworkConfig.length === 0) {
-        console.log("📭 功課清單為空，保留功課區塊但顯示無功課提示。");
         if (hwGrid) {
             hwGrid.innerHTML = `<div class="col-span-full text-center py-6 text-amber-700 font-bold bg-amber-100/50 rounded-xl border border-amber-200 border-dashed">🎉 今天暫無功課，好好休息或進行下方自主練習吧！</div>`;
         }
         return;
     }
     
-    // 提取不重複的功課名稱
     let uniqueHwNames = [...new Set(dynamicHomeworkConfig.map(c => c.hwName))];
     
     if (hwGrid) {
         hwGrid.innerHTML = '';
         uniqueHwNames.forEach(hwName => {
-            // 計算這份功課的總題數
             let totalQs = dynamicHomeworkConfig.filter(c => c.hwName === hwName).reduce((sum, c) => sum + (c.qCount || 1), 0);
             
-            // 移除 emoji，按鈕設計與自主練習完全一致 (py-4 px-2)
             hwGrid.innerHTML += `
             <button onclick="startHomework('${hwName}')" class="py-4 px-2 border border-amber-300 rounded-xl hover:border-amber-400 hover:shadow-md hover:bg-amber-100 transition-all bg-white shadow-sm flex flex-col items-center justify-center group">
                 <span class="text-amber-800 font-bold text-sm sm:text-base">${hwName}</span>
@@ -184,7 +306,7 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
         
         let isMatch = (sClass === currentUserClass && sNum === currentUserNum);
         
-        // 🌟 核心防呆修正：後端傳來的空值若對應到學號 0，直接比對班別與學號即可，不依賴姓名 (徹底解決 Nickname 衝突導致未上榜)
+        // 🌟 核心防呆修正：後端傳來的空值若對應到學號 0，直接比對班別與學號即可
         if (!isMatch && sClass === currentUserClass && sNum === "" && currentUserNum === "0") {
             isMatch = true;
         }
@@ -249,13 +371,6 @@ function setQuestionNum(num) {
         activeBtn.classList.remove('bg-transparent', 'text-slate-600'); 
         activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-md'); 
     }
-}
-
-function showTopicScreen() {
-    document.getElementById('topicScreen')?.classList.remove('hidden');
-    document.getElementById('startScreen')?.classList.add('hidden');
-    document.getElementById('appContainer')?.classList.add('hidden');
-    document.getElementById('endScreen')?.classList.add('hidden');
 }
 
 function backToLevelSelection() {
@@ -568,6 +683,7 @@ window.skipQuestion = function() {
     if(!q) return;
     
     attemptsCount = 2; 
+    addIntegrityEvent('skip', q, false); 
     
     showFeedback('incorrect', `<div class="mb-4 text-orange-600 font-bold text-lg sm:text-xl bg-orange-50 p-3 rounded-lg border border-orange-200 shadow-sm">⏭️ 你已選擇跳過本題 (獲得 0 分)</div>`, true); 
     
@@ -580,7 +696,7 @@ window.skipQuestion = function() {
     });
 
     if (q.isHandwriting) {
-        ['clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn'].forEach(id => {
+        ['undo-btn', 'clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn'].forEach(id => {
             const el = document.getElementById(id);
             if(el) el.disabled = true;
         });
@@ -638,7 +754,7 @@ function loadQuestion() {
             document.getElementById('draw-container')?.classList.remove('border-green-500', 'border-red-400');
             document.getElementById('kb-container')?.classList.remove('border-green-500', 'border-red-400');
             
-            ['clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn'].forEach(id => {
+            ['undo-btn', 'clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.disabled = false;
             });
@@ -646,7 +762,7 @@ function loadQuestion() {
             const kbInput = document.getElementById('keyboard-math-input');
             if (kbInput) kbInput.value = ""; 
 
-            switchInputMode('draw');
+            switchInputMode('keyboard');
             setTimeout(() => { resizeCanvas(); initCanvas(); }, 50);
         }
     } else {
@@ -676,6 +792,7 @@ function handleAnswer(selectedOption, buttonElement) {
     let q = questionBank[currentQuestionIndex];
 
     if (selectedOption.isCorrect) {
+        addIntegrityEvent('mcq', q, true);
         const skipBtns = document.querySelectorAll('.skip-action-btn');
         skipBtns.forEach(btn => {
             btn.disabled = true;
@@ -702,6 +819,7 @@ function handleAnswer(selectedOption, buttonElement) {
         showFeedback('correct', selectedOption.hint, true);
         disableAllButtons();
     } else {
+        addIntegrityEvent('mcq', q, false);
         const skipBtns = document.querySelectorAll('.skip-action-btn');
         skipBtns.forEach(btn => {
             btn.disabled = false;
@@ -744,6 +862,8 @@ function goToNext() { currentQuestionIndex++; if (currentQuestionIndex < questio
 let isDrawing = false;
 let lastX = 0;
 let lastY = 0;
+let strokeHistory = [];   // 🌟 儲存所有筆劃，用於「上一步」
+let currentStroke = [];   // 🌟 當前正在繪製的筆劃
 
 function initCanvas() {
     const canvas = document.getElementById('draw-canvas');
@@ -755,6 +875,49 @@ function initCanvas() {
     ctx.lineWidth = 3;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
+    strokeHistory = [];
+    currentStroke = [];
+    updateUndoBtn();
+}
+
+function updateUndoBtn() {
+    const btn = document.getElementById('undo-btn');
+    if (!btn) return;
+    if (strokeHistory.length === 0) {
+        btn.disabled = true;
+        btn.classList.add('opacity-40', 'cursor-not-allowed');
+    } else {
+        btn.disabled = false;
+        btn.classList.remove('opacity-40', 'cursor-not-allowed');
+    }
+}
+
+function undoStroke() {
+    if (strokeHistory.length === 0) return;
+    strokeHistory.pop();
+    redrawCanvasFromHistory();
+    updateUndoBtn();
+}
+
+function redrawCanvasFromHistory() {
+    const canvas = document.getElementById('draw-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    strokeHistory.forEach(stroke => {
+        if (stroke.length < 2) return;
+        ctx.beginPath();
+        ctx.moveTo(stroke[0].x, stroke[0].y);
+        for (let i = 1; i < stroke.length; i++) {
+            ctx.lineTo(stroke[i].x, stroke[i].y);
+        }
+        ctx.stroke();
+    });
 }
 
 function resizeCanvas() {
@@ -782,9 +945,35 @@ function getPos(e) {
     return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
 }
 
-function startDrawing(e) { e.preventDefault(); isDrawing = true; const pos = getPos(e); lastX = pos.x; lastY = pos.y; }
-function draw(e) { if (!isDrawing) return; e.preventDefault(); const pos = getPos(e); const ctx = document.getElementById('draw-canvas').getContext('2d'); ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(pos.x, pos.y); ctx.stroke(); lastX = pos.x; lastY = pos.y; }
-function stopDrawing() { isDrawing = false; }
+function startDrawing(e) {
+    e.preventDefault();
+    isDrawing = true;
+    const pos = getPos(e);
+    lastX = pos.x;
+    lastY = pos.y;
+    currentStroke = [{ x: pos.x, y: pos.y }];
+}
+function draw(e) {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    const ctx = document.getElementById('draw-canvas').getContext('2d');
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    lastX = pos.x;
+    lastY = pos.y;
+    currentStroke.push({ x: pos.x, y: pos.y });
+}
+function stopDrawing() {
+    if (isDrawing && currentStroke.length > 1) {
+        strokeHistory.push(currentStroke);
+        updateUndoBtn();
+    }
+    currentStroke = [];
+    isDrawing = false;
+}
 
 function setupCanvasEvents() {
     const canvas = document.getElementById('draw-canvas');
@@ -792,8 +981,12 @@ function setupCanvasEvents() {
     canvas.addEventListener('mousedown', startDrawing); canvas.addEventListener('mousemove', draw); canvas.addEventListener('mouseup', stopDrawing); canvas.addEventListener('mouseout', stopDrawing);
     canvas.addEventListener('touchstart', startDrawing, { passive: false }); canvas.addEventListener('touchmove', draw, { passive: false }); canvas.addEventListener('touchend', stopDrawing); canvas.addEventListener('touchcancel', stopDrawing);
     
-    document.getElementById('clear-btn')?.addEventListener('click', () => { 
-        initCanvas(); 
+    document.getElementById('clear-btn')?.addEventListener('click', () => {
+        initCanvas();
+        document.getElementById('draw-container')?.classList.remove('border-green-500', 'border-red-400');
+    });
+    document.getElementById('undo-btn')?.addEventListener('click', () => {
+        undoStroke();
         document.getElementById('draw-container')?.classList.remove('border-green-500', 'border-red-400');
     });
     document.getElementById('recognize-btn')?.addEventListener('click', startRecognitionPhase);
@@ -855,6 +1048,8 @@ async function startRecognitionPhase() {
     if (recBtn) recBtn.disabled = true;
     const clrBtn = document.getElementById('clear-btn');
     if (clrBtn) clrBtn.disabled = true;
+    const undoBtn = document.getElementById('undo-btn');
+    if (undoBtn) undoBtn.disabled = true;
     document.getElementById('draw-container')?.classList.remove('border-green-500', 'border-red-400');
     
     try {
@@ -961,7 +1156,7 @@ async function startKeyboardRecognitionPhase() {
 window.rewriteHandwriting = function() {
     document.getElementById('hw-confirm-ui')?.classList.add('hidden');
     initCanvas(); 
-    const btns = ['recognize-btn', 'clear-btn', 'kb-recognize-btn', 'kb-clear-btn'];
+    const btns = ['recognize-btn', 'clear-btn', 'undo-btn', 'kb-recognize-btn', 'kb-clear-btn'];
     btns.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.disabled = false;
@@ -1021,6 +1216,7 @@ window.confirmAndGrade = async function() {
         let finalHint = feedbackHtml + correctOpt.hint;
 
         if (result.isCorrect) {
+            addIntegrityEvent('hw', q, true);
             if (attemptsCount === 1) { 
                 score += (q.scoreVal || 10); 
                 if (topicScores[q.topic]) {
@@ -1032,6 +1228,7 @@ window.confirmAndGrade = async function() {
             document.getElementById('draw-container')?.classList.add('border-green-500');
             document.getElementById('kb-container')?.classList.add('border-green-500');
         } else {
+            addIntegrityEvent('hw', q, false);
             skipBtns.forEach(btn => {
                 btn.disabled = false;
                 btn.classList.remove('opacity-50', 'cursor-not-allowed');
@@ -1041,7 +1238,7 @@ window.confirmAndGrade = async function() {
             document.getElementById('draw-container')?.classList.add('border-red-400');
             document.getElementById('kb-container')?.classList.add('border-red-400');
             
-            ['clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn'].forEach(id => {
+            ['undo-btn', 'clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.disabled = false;
             });
@@ -1066,7 +1263,7 @@ window.giveUpHandwriting = function() {
     let correctOpt = q.options.find(o => o.isCorrect);
     showFeedback('incorrect', correctOpt.hint, true); 
     
-    ['clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn'].forEach(id => {
+    ['undo-btn', 'clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.disabled = true;
     });
@@ -1184,34 +1381,60 @@ function showEndScreen() {
             </div>
         `;
     }
+
+    // 🌟 自動傳送成績 (無需手動按鈕)
+    setTimeout(() => {
+        const submitBtn = document.getElementById('submitRecordBtn');
+        if (submitBtn && !submitBtn.disabled) {
+            submitBtn.textContent = "正在自動傳送...";
+            submitToGoogleSheet();
+        }
+    }, 800);
 }
 
-function updateScoreDisplay() { 
+function updateScoreDisplay() {
     const sd = document.getElementById('scoreDisplay');
     if (sd) sd.textContent = score; 
+}
+
+function resetIntegrityState() {
+    quizIntegrity.seed = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2) + Date.now().toString(36);
+    quizIntegrity.chain = quizIntegrity.seed;
+    quizIntegrity.events = [];
+}
+
+function addIntegrityEvent(eventType, q, isCorrect = false) {
+    const payload = {
+        t: Date.now(), e: eventType, i: currentQuestionIndex,
+        topic: q?.topic || "", level: q?.level || "",
+        sv: q?.scoreVal || 0, c: !!isCorrect
+    };
+    quizIntegrity.events.push(payload);
+    const raw = `${quizIntegrity.chain}|${JSON.stringify(payload)}`;
+    let hash = 0;
+    for (let i = 0; i < raw.length; i++) {
+        hash = ((hash << 5) - hash) + raw.charCodeAt(i);
+        hash = hash & hash;
+    }
+    quizIntegrity.chain = (hash >>> 0).toString(16);
 }
 
 function submitToGoogleSheet() {
     const btn = document.getElementById('submitRecordBtn');
     const statusText = document.getElementById('submitStatus');
-    const classNameEl = document.getElementById('className');
-    const classNumberEl = document.getElementById('classNumber');
-    const studentNameEl = document.getElementById('studentName');
     
-    if (!classNameEl || !classNumberEl || !studentNameEl || !statusText || !btn) return;
+    // 🌟 從暫存取得登入資訊
+    const className = getStoredData('dse_className');
+    const classNumber = getStoredData('dse_classNumber');
+    const studentName = getStoredData('dse_studentName');
+    const studentPwd = getStoredData('dse_password');
+    
+    if (!className || !classNumber || !studentName || !statusText || !btn) return;
 
     // 🛑 防連點機制：若按鈕已鎖定，直接阻擋
     if (btn.disabled) return;
-
-    const className = classNameEl.value.trim().toUpperCase();
-    const classNumber = classNumberEl.value.trim();
-    const studentName = studentNameEl.value.trim();
-
-    if (!className || !classNumber || !studentName) {
-        statusText.textContent = "⚠️ 請填寫所有資料"; statusText.className = "text-center text-sm font-bold mt-3 text-red-500 block"; statusText.classList.remove('hidden'); return;
-    }
-
-    setStoredData('dse_className', className); setStoredData('dse_classNumber', classNumber); setStoredData('dse_studentName', studentName);
 
     btn.disabled = true; btn.textContent = "傳送中..."; btn.classList.add('opacity-50'); statusText.classList.add('hidden');
     
@@ -1231,15 +1454,18 @@ function submitToGoogleSheet() {
     // 🌟 準備終極防護參數
     const timestampStr = Date.now().toString();
     const timeTakenStr = quizTimeTaken.toString();
-
+    const integritySeed = quizIntegrity.seed;
+    const integrityChain = quizIntegrity.chain;
+    const integrityPayload = JSON.stringify(quizIntegrity.events);
+    
     // ====================================================================
-    // 🔐 終極加密防禦：加入 UUID、時間戳與作答時間進行混合加密
+    // 🔐 終極加密防禦：加入 UUID、時間戳、作答時間 與 密碼 進行混合加密
     // ====================================================================
     const rawScoreStr = String(score).trim();
     const rawTotalScoreStr = String(totalScoreVal).trim();
     const saltKey = "DseMath@2026_HK_Secure!";
     
-    const rawString = className + "|" + classNumber + "|" + rawScoreStr + "|" + rawTotalScoreStr + "|" + sessionNonce + "|" + timestampStr + "|" + timeTakenStr + "|" + saltKey;
+    const rawString = className + "|" + classNumber + "|" + rawScoreStr + "|" + rawTotalScoreStr + "|" + sessionNonce + "|" + timestampStr + "|" + timeTakenStr + "|" + studentPwd + "|" + saltKey;
     let hashVal = 0;
     for (let i = 0; i < rawString.length; i++) {
         hashVal = ((hashVal << 5) - hashVal) + rawString.charCodeAt(i);
@@ -1265,7 +1491,11 @@ function submitToGoogleSheet() {
     formData.append('nonce', sessionNonce);
     formData.append('timestamp', timestampStr);
     formData.append('timeTaken', timeTakenStr);
-
+    formData.append('password', studentPwd); // 加入密碼
+    formData.append('integritySeed', integritySeed);
+    formData.append('integrityChain', integrityChain);
+    formData.append('integrityPayload', integrityPayload);
+    
     fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData })
         .then(response => response.json())
         .then(data => {
@@ -1360,19 +1590,185 @@ function submitToGoogleSheet() {
 function renderScratchCard() {
     const canvas = document.getElementById('scratchCanvas');
     if (!canvas) return;
+
+    // 重置可見性
+    canvas.style.opacity = '1';
+    canvas.style.display = 'block';
+    canvas.style.transition = '';
+
     const ctx = canvas.getContext('2d');
-    canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
-    ctx.fillStyle = '#cbd5e1'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.font = 'bold 16px sans-serif'; ctx.fillStyle = '#64748b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✨ 刮開看獎勵 ✨', canvas.width / 2, canvas.height / 2);
-    ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.lineWidth = 25; ctx.globalCompositeOperation = 'destination-out';
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+
+    // 🌟 漸變金箔覆蓋層
+    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, '#fde68a');
+    gradient.addColorStop(0.35, '#f59e0b');
+    gradient.addColorStop(0.7, '#d97706');
+    gradient.addColorStop(1, '#92400e');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 金箔光澤紋理
+    for (let i = 0; i < 45; i++) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.18})`;
+        ctx.beginPath();
+        ctx.arc(
+            Math.random() * canvas.width,
+            Math.random() * canvas.height,
+            Math.random() * 6 + 1,
+            0, Math.PI * 2
+        );
+        ctx.fill();
+    }
+
+    // 中央提示文字
+    ctx.font = 'bold 17px sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(120, 53, 15, 0.6)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText('✨ 用手指刮開驚喜 ✨', canvas.width / 2, canvas.height / 2);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // 設置刮除模式
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 38;
+    ctx.globalCompositeOperation = 'destination-out';
+
     let isDrawing = false;
-    function getPos(e) { const rect = canvas.getBoundingClientRect(); const evt = e.touches ? e.touches[0] : e; return { x: evt.clientX - rect.left, y: evt.clientY - rect.top }; }
-    canvas.onmousedown = (e) => { isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
-    canvas.onmousemove = (e) => { if (!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
-    window.onmouseup = () => isDrawing = false;
-    canvas.ontouchstart = (e) => { e.preventDefault(); isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
-    canvas.ontouchmove = (e) => { e.preventDefault(); if (!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
-    canvas.ontouchend = () => isDrawing = false;
+    let revealed = false;
+    let strokeCount = 0;
+
+    function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const evt = e.touches ? e.touches[0] : e;
+        return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+    }
+
+    function checkReveal() {
+        if (revealed) return;
+        strokeCount++;
+        if (strokeCount % 4 !== 0) return;
+        try {
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            let transparent = 0, total = 0;
+            for (let i = 3; i < imgData.data.length; i += 40) {
+                total++;
+                if (imgData.data[i] < 128) transparent++;
+            }
+            if (total > 0 && (transparent / total) > 0.4) {
+                revealed = true;
+                triggerReveal();
+            }
+        } catch (err) {}
+    }
+
+    function triggerReveal() {
+        if (navigator.vibrate) {
+            try { navigator.vibrate([80, 40, 80, 40, 200]); } catch (e) {}
+        }
+        canvas.style.transition = 'opacity 0.7s ease-out';
+        canvas.style.opacity = '0';
+        spawnConfetti();
+        const rewardZone = document.getElementById('rewardZone');
+        if (rewardZone) {
+            rewardZone.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            rewardZone.style.transform = 'scale(1.04)';
+            setTimeout(() => { rewardZone.style.transform = 'scale(1)'; }, 450);
+        }
+        setTimeout(() => { canvas.style.display = 'none'; }, 800);
+    }
+
+    canvas.onmousedown = (e) => {
+        isDrawing = true;
+        const p = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+    };
+    canvas.onmousemove = (e) => {
+        if (!isDrawing) return;
+        const p = getPos(e);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        checkReveal();
+    };
+    window.addEventListener('mouseup', () => {
+        if (isDrawing) { isDrawing = false; checkReveal(); }
+    });
+    canvas.ontouchstart = (e) => {
+        e.preventDefault();
+        isDrawing = true;
+        const p = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+    };
+    canvas.ontouchmove = (e) => {
+        e.preventDefault();
+        if (!isDrawing) return;
+        const p = getPos(e);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        checkReveal();
+    };
+    canvas.ontouchend = () => {
+        if (isDrawing) { isDrawing = false; checkReveal(); }
+    };
+}
+
+// 🎉 刮刮卡完全揭開時的彩屑爆發效果
+function spawnConfetti() {
+    const container = document.getElementById('rewardZone');
+    if (!container) return;
+    const colors = ['#fbbf24', '#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#a855f7', '#ec4899', '#facc15'];
+    const scratchUI = document.getElementById('scratchUI');
+    const containerRect = container.getBoundingClientRect();
+    let originX = container.offsetWidth / 2;
+    let originY = container.offsetHeight / 2;
+    if (scratchUI) {
+        const sRect = scratchUI.getBoundingClientRect();
+        originX = sRect.left - containerRect.left + sRect.width / 2;
+        originY = sRect.top - containerRect.top + sRect.height / 2;
+    }
+    for (let i = 0; i < 45; i++) {
+        const piece = document.createElement('div');
+        const w = 6 + Math.random() * 6;
+        piece.style.cssText = `
+            position: absolute;
+            width: ${w}px;
+            height: ${w * 0.4}px;
+            background: ${colors[Math.floor(Math.random() * colors.length)]};
+            top: ${originY}px;
+            left: ${originX}px;
+            border-radius: 1px;
+            pointer-events: none;
+            z-index: 50;
+            transform: translate(-50%, -50%);
+        `;
+        container.appendChild(piece);
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 70 + Math.random() * 200;
+        const tx = Math.cos(angle) * distance;
+        const ty = Math.sin(angle) * distance + 60;
+        const rotation = (Math.random() - 0.5) * 1080;
+        piece.animate([
+            { transform: 'translate(-50%, -50%) rotate(0deg)', opacity: 1 },
+            { transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) rotate(${rotation}deg)`, opacity: 0 }
+        ], {
+            duration: 1400 + Math.random() * 700,
+            easing: 'cubic-bezier(0.15, 0.55, 0.35, 1)',
+            fill: 'forwards'
+        });
+        setTimeout(() => piece.remove(), 2300);
+    }
 }
 
 function renderMath() {
@@ -1391,12 +1787,16 @@ window.confirmBackToLevelSelection = confirmBackToLevelSelection;
 window.selectTopic = selectTopic; 
 window.startGame = startGame; 
 window.startGlobalMixed = startGlobalMixed; 
-window.submitToGoogleSheet = submitToGoogleSheet;
 window.startHomework = startHomework;
 window.restartLevel = restartLevel;
+window.loginApp = loginApp;
+window.logoutApp = logoutApp;
 
+// ==========================================
+// 🌟 初始化邏輯，一啟動就檢查登入狀態
+// ==========================================
 document.addEventListener('DOMContentLoaded', () => { 
-    console.log("🚀 App.js V70 初始化執行... 暫存機制修復完成！");
+    console.log("🚀 App.js V71 初始化執行... 強制登入鎖定系統啟動！");
     
     const globalBtns = document.querySelectorAll("button[onclick*='startGlobalMixed']");
     globalBtns.forEach(btn => {
@@ -1416,37 +1816,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    showTopicScreen(); fetchConfig(); setInterval(() => fetchConfig(true), 5000); 
+    // 🌟 一載入立刻觸發登入驗證，未登入者會被攔截並動態生成登入畫面
+    showTopicScreen(); 
+    fetchConfig(); 
+    setInterval(() => fetchConfig(true), 30000);
     
-    // 🌟 核心修復：載入並自動填入暫存資料
-    const savedClass = getStoredData('dse_className'); 
-    const savedNum = getStoredData('dse_classNumber'); 
-    const savedName = getStoredData('dse_studentName');
-    
-    const classNameEl = document.getElementById('className'); 
-    if (classNameEl && savedClass) classNameEl.value = savedClass; 
-    
-    const classNumEl = document.getElementById('classNumber'); 
-    if (classNumEl && savedNum) classNumEl.value = savedNum; 
-    
-    const studentNameEl = document.getElementById('studentName'); 
-    if (studentNameEl && savedName) studentNameEl.value = savedName;
-    
-    // 🌟 核心修復：統一即時監聽輸入與變化，解決手機「自動填寫」漏寫入的問題
-    const updateStorageAndRank = () => {
-        if (classNameEl) setStoredData('dse_className', classNameEl.value.toUpperCase().trim());
-        if (classNumEl) setStoredData('dse_classNumber', classNumEl.value.trim());
-        if (studentNameEl) setStoredData('dse_studentName', studentNameEl.value.trim());
-        renderLeaderboards();
-    };
+    // 將 localStorage 暫存資料預填到登入框 (僅班別與學號，密碼為求安全不預填)
+    setTimeout(() => {
+        const savedClass = getStoredData('dse_className');
+        const savedNum = getStoredData('dse_classNumber');
 
-    classNameEl?.addEventListener('input', updateStorageAndRank);
-    classNumEl?.addEventListener('input', updateStorageAndRank);
-    studentNameEl?.addEventListener('input', updateStorageAndRank);
-    // 加入 change 事件，捕獲瀏覽器的自動填寫 (Auto-fill) 或直接貼上
-    classNameEl?.addEventListener('change', updateStorageAndRank);
-    classNumEl?.addEventListener('change', updateStorageAndRank);
-    studentNameEl?.addEventListener('change', updateStorageAndRank);
+        const loginClassEl = document.getElementById('loginClass'); if (loginClassEl && savedClass) loginClassEl.value = savedClass;
+        const loginNumEl = document.getElementById('loginNum'); if (loginNumEl && savedNum) loginNumEl.value = savedNum;
+    }, 100);
 
     setupCanvasEvents();
 });
