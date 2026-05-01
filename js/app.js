@@ -47,6 +47,27 @@ let currentHomeworkName = "";
 let dynamicHomeworkConfig = [];
 let topicScores = {}; // 追蹤各課題的分數明細
 
+// 🎁 每日首10題獎勵系統
+let dailyCorrectCount = 0;
+
+function _dailyBonusKey() {
+    const cls = getStoredData('dse_className').toUpperCase().trim();
+    const num = getStoredData('dse_classNumber').trim();
+    const d = new Date();
+    const dateStr = d.getFullYear().toString() +
+        String(d.getMonth() + 1).padStart(2, '0') +
+        String(d.getDate()).padStart(2, '0');
+    return `dse_dailyQ_${cls}_${num}_${dateStr}`;
+}
+
+function getDailyCorrectCount() {
+    return parseInt(getStoredData(_dailyBonusKey())) || 0;
+}
+
+function saveDailyCorrectCount(count) {
+    setStoredData(_dailyBonusKey(), String(count));
+}
+
 // 🛡️ 終極防護系統變數
 let quizStartTime = 0;
 let quizTimeTaken = 0;
@@ -637,7 +658,7 @@ function startGame(levelPref) {
 }
 
 function startQuizSession() {
-    currentQuestionIndex = 0; score = 0; updateScoreDisplay();
+    currentQuestionIndex = 0; score = 0; dailyCorrectCount = getDailyCorrectCount(); updateScoreDisplay();
     
     // 🌟 啟動防護紀錄：記錄開始時間與產生一次性隨機碼 (UUID)
     quizStartTime = Date.now();
@@ -661,20 +682,30 @@ function startQuizSession() {
 window.switchInputMode = function(mode) {
     const drawZone = document.getElementById('draw-input-zone');
     const kbZone = document.getElementById('keyboard-input-zone');
+    const camZone = document.getElementById('camera-input-zone');
     const tabDraw = document.getElementById('tab-draw');
     const tabKb = document.getElementById('tab-keyboard');
-    
+    const tabCam = document.getElementById('tab-camera');
+    const activeClass = "flex-1 py-2 text-sm font-bold rounded-md bg-white text-indigo-600 shadow-sm transition-all";
+    const inactiveClass = "flex-1 py-2 text-sm font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all";
+
+    drawZone?.classList.add('hidden');
+    kbZone?.classList.add('hidden');
+    camZone?.classList.add('hidden');
+    if (tabDraw) tabDraw.className = inactiveClass;
+    if (tabKb) tabKb.className = inactiveClass;
+    if (tabCam) tabCam.className = inactiveClass;
+
     if (mode === 'draw') {
         drawZone?.classList.remove('hidden');
-        kbZone?.classList.add('hidden');
-        if (tabDraw) tabDraw.className = "flex-1 py-2 text-sm font-bold rounded-md bg-white text-indigo-600 shadow-sm transition-all";
-        if (tabKb) tabKb.className = "flex-1 py-2 text-sm font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all";
-        setTimeout(() => { resizeCanvas(); }, 50); 
-    } else {
-        drawZone?.classList.add('hidden');
+        if (tabDraw) tabDraw.className = activeClass;
+        setTimeout(() => { resizeCanvas(); }, 50);
+    } else if (mode === 'keyboard') {
         kbZone?.classList.remove('hidden');
-        if (tabKb) tabKb.className = "flex-1 py-2 text-sm font-bold rounded-md bg-white text-indigo-600 shadow-sm transition-all";
-        if (tabDraw) tabDraw.className = "flex-1 py-2 text-sm font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all";
+        if (tabKb) tabKb.className = activeClass;
+    } else if (mode === 'camera') {
+        camZone?.classList.remove('hidden');
+        if (tabCam) tabCam.className = activeClass;
     }
 };
 
@@ -696,12 +727,13 @@ window.skipQuestion = function() {
     });
 
     if (q.isHandwriting) {
-        ['undo-btn', 'clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn'].forEach(id => {
+        ['undo-btn', 'clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn', 'camera-open-btn', 'camera-recognize-btn'].forEach(id => {
             const el = document.getElementById(id);
             if(el) el.disabled = true;
         });
         document.getElementById('draw-container')?.classList.add('border-slate-300');
         document.getElementById('kb-container')?.classList.add('border-slate-300');
+        document.getElementById('camera-container')?.classList.add('border-slate-300');
     }
 };
 
@@ -753,14 +785,25 @@ function loadQuestion() {
             
             document.getElementById('draw-container')?.classList.remove('border-green-500', 'border-red-400');
             document.getElementById('kb-container')?.classList.remove('border-green-500', 'border-red-400');
-            
-            ['undo-btn', 'clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn'].forEach(id => {
+            document.getElementById('camera-container')?.classList.remove('border-green-500', 'border-red-400');
+
+            ['undo-btn', 'clear-btn', 'recognize-btn', 'kb-recognize-btn', 'kb-clear-btn', 'camera-open-btn'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.disabled = false;
             });
-            
+
             const kbInput = document.getElementById('keyboard-math-input');
-            if (kbInput) kbInput.value = ""; 
+            if (kbInput) kbInput.value = "";
+
+            // 重置相機區
+            const camPreview = document.getElementById('camera-preview');
+            const camPlaceholder = document.getElementById('camera-placeholder');
+            const camRecBtn = document.getElementById('camera-recognize-btn');
+            const camFileInput = document.getElementById('camera-file-input');
+            if (camPreview) { camPreview.src = ''; camPreview.classList.add('hidden'); }
+            if (camPlaceholder) camPlaceholder.classList.remove('hidden');
+            if (camRecBtn) { camRecBtn.classList.add('hidden'); camRecBtn.disabled = false; }
+            if (camFileInput) camFileInput.value = '';
 
             switchInputMode('draw'); // 👈 🌟 修改這裡：改為預設手寫模式
             setTimeout(() => { resizeCanvas(); initCanvas(); }, 50);
@@ -792,6 +835,7 @@ function handleAnswer(selectedOption, buttonElement) {
     let q = questionBank[currentQuestionIndex];
 
     if (selectedOption.isCorrect) {
+        if (attemptsCount === 1 && dailyCorrectCount < 10) { q.scoreVal = 15; }
         addIntegrityEvent('mcq', q, true);
         const skipBtns = document.querySelectorAll('.skip-action-btn');
         skipBtns.forEach(btn => {
@@ -807,15 +851,15 @@ function handleAnswer(selectedOption, buttonElement) {
                 spanEl.classList.replace('text-slate-500', 'text-white');
             }
         }
-        
-        if (attemptsCount === 1) { 
-            score += (q.scoreVal || 10); 
-            if (topicScores[q.topic]) {
-                topicScores[q.topic].earned += (q.scoreVal || 10);
-            }
-            updateScoreDisplay(); 
+
+        if (attemptsCount === 1) {
+            score += (q.scoreVal || 10);
+            if (topicScores[q.topic]) { topicScores[q.topic].earned += (q.scoreVal || 10); }
+            dailyCorrectCount++;
+            saveDailyCorrectCount(dailyCorrectCount);
+            updateScoreDisplay();
         }
-        
+
         showFeedback('correct', selectedOption.hint, true);
         disableAllButtons();
     } else {
@@ -998,6 +1042,24 @@ function setupCanvasEvents() {
     });
     document.getElementById('kb-recognize-btn')?.addEventListener('click', startKeyboardRecognitionPhase);
 
+    document.getElementById('camera-file-input')?.addEventListener('change', function() {
+        const file = this.files && this.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('camera-preview');
+            const placeholder = document.getElementById('camera-placeholder');
+            const camRecBtn = document.getElementById('camera-recognize-btn');
+            if (preview) { preview.src = e.target.result; preview.classList.remove('hidden'); }
+            if (placeholder) placeholder.classList.add('hidden');
+            if (camRecBtn) { camRecBtn.classList.remove('hidden'); camRecBtn.disabled = false; }
+            document.getElementById('camera-container')?.classList.remove('border-green-500', 'border-red-400');
+        };
+        reader.readAsDataURL(file);
+    });
+
+    document.getElementById('camera-recognize-btn')?.addEventListener('click', startCameraRecognitionPhase);
+
     window.addEventListener('resize', resizeCanvas);
 }
 
@@ -1154,14 +1216,96 @@ async function startKeyboardRecognitionPhase() {
     }
 }
 
+// 📷 處理「相機拍照」辨識
+async function startCameraRecognitionPhase() {
+    const fileInput = document.getElementById('camera-file-input');
+    const file = fileInput && fileInput.files && fileInput.files[0];
+    if (!file) { alert("請先拍攝或選擇一張相片！"); return; }
+
+    const camRecBtn = document.getElementById('camera-recognize-btn');
+    const camOpenBtn = document.getElementById('camera-open-btn');
+    const loadingDiv = document.getElementById('global-loading');
+    const loadingText = document.getElementById('global-loading-text');
+
+    if (camRecBtn) camRecBtn.disabled = true;
+    if (camOpenBtn) camOpenBtn.disabled = true;
+    if (loadingText) loadingText.innerHTML = "AI 正在辨識你的相片...<br><span class='text-sm font-normal text-slate-500'>傳送至 Mathpix 雲端處理中</span>";
+    if (loadingDiv) loadingDiv.classList.remove('hidden');
+    document.getElementById('camera-container')?.classList.remove('border-green-500', 'border-red-400');
+
+    try {
+        // 壓縮圖片至最大 800px 寬，與畫板辨識保持一致
+        const base64Image = await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = function() {
+                const MAX_WIDTH = 800;
+                let w = img.width, h = img.height;
+                if (w > MAX_WIDTH) { h = Math.round(h * MAX_WIDTH / w); w = MAX_WIDTH; }
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = w; tempCanvas.height = h;
+                const ctx = tempCanvas.getContext('2d');
+                ctx.fillStyle = "#FFFFFF";
+                ctx.fillRect(0, 0, w, h);
+                ctx.drawImage(img, 0, 0, w, h);
+                resolve(tempCanvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
+            };
+            img.onerror = reject;
+            img.src = URL.createObjectURL(file);
+        });
+
+        const formData = new URLSearchParams();
+        formData.append('action', 'ai_ocr');
+        formData.append('image', base64Image);
+
+        const result = await fetchWithRetry(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
+        if (!result.success) throw new Error(result.message);
+        if (result.latex === undefined) throw new Error("後台未回傳數式！請確認 Google Apps Script 已部署最新代碼。");
+
+        currentRecognizedLaTeX = result.latex;
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+
+        const confirmUI = document.getElementById('hw-confirm-ui');
+        const mathDiv = document.getElementById('hw-confirm-math');
+        let existingWarning = document.getElementById('model-warning-ocr');
+        if (existingWarning) existingWarning.remove();
+
+        if (result.usedModel && result.usedModel !== "gemini-2.5-pro" && result.usedModel !== "mathpix-v3") {
+            const debugText = result.debugInfo ? `<br><span class="text-xs font-normal text-red-500 text-left block mt-1">🔍 偵錯紀錄: ${result.debugInfo}</span>` : "";
+            const warningHtml = `<div id="model-warning-ocr" class="w-full max-w-sm bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg mb-3 text-sm font-bold shadow-sm">⚠️ 注意：AI 呼叫失敗，已降級使用「${result.usedModel}」。${debugText}</div>`;
+            if (mathDiv) mathDiv.insertAdjacentHTML('beforebegin', warningHtml);
+        }
+
+        if (mathDiv) mathDiv.innerHTML = `\\( \\displaystyle ${currentRecognizedLaTeX} \\)`;
+        if (confirmUI) confirmUI.classList.remove('hidden');
+        renderMath();
+
+    } catch (err) {
+        console.error(err);
+        alert(`⚠️ 辨識失敗！\n\n詳細錯誤：${err.message}`);
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+        if (camRecBtn) camRecBtn.disabled = false;
+        if (camOpenBtn) camOpenBtn.disabled = false;
+    }
+}
+
 window.rewriteHandwriting = function() {
     document.getElementById('hw-confirm-ui')?.classList.add('hidden');
-    initCanvas(); 
-    const btns = ['recognize-btn', 'clear-btn', 'undo-btn', 'kb-recognize-btn', 'kb-clear-btn'];
+    initCanvas();
+    const btns = ['recognize-btn', 'clear-btn', 'undo-btn', 'kb-recognize-btn', 'kb-clear-btn', 'camera-open-btn'];
     btns.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.disabled = false;
     });
+    // 重置相機預覽狀態
+    const preview = document.getElementById('camera-preview');
+    const placeholder = document.getElementById('camera-placeholder');
+    const camRecBtn = document.getElementById('camera-recognize-btn');
+    const fileInput = document.getElementById('camera-file-input');
+    if (preview) { preview.src = ''; preview.classList.add('hidden'); }
+    if (placeholder) placeholder.classList.remove('hidden');
+    if (camRecBtn) { camRecBtn.classList.add('hidden'); camRecBtn.disabled = false; }
+    if (fileInput) fileInput.value = '';
+    document.getElementById('camera-container')?.classList.remove('border-green-500', 'border-red-400');
 };
 
 window.confirmAndGrade = async function() {
@@ -1217,13 +1361,14 @@ window.confirmAndGrade = async function() {
         let finalHint = feedbackHtml + correctOpt.hint;
 
         if (result.isCorrect) {
+            if (attemptsCount === 1 && dailyCorrectCount < 10) { q.scoreVal = 15; }
             addIntegrityEvent('hw', q, true);
-            if (attemptsCount === 1) { 
-                score += (q.scoreVal || 10); 
-                if (topicScores[q.topic]) {
-                    topicScores[q.topic].earned += (q.scoreVal || 10);
-                }
-                updateScoreDisplay(); 
+            if (attemptsCount === 1) {
+                score += (q.scoreVal || 10);
+                if (topicScores[q.topic]) { topicScores[q.topic].earned += (q.scoreVal || 10); }
+                dailyCorrectCount++;
+                saveDailyCorrectCount(dailyCorrectCount);
+                updateScoreDisplay();
             }
             showFeedback('correct', finalHint, true);
             document.getElementById('draw-container')?.classList.add('border-green-500');
@@ -1395,7 +1540,17 @@ function showEndScreen() {
 
 function updateScoreDisplay() {
     const sd = document.getElementById('scoreDisplay');
-    if (sd) sd.textContent = score; 
+    if (sd) sd.textContent = score;
+    const bi = document.getElementById('dailyBonusIndicator');
+    if (bi) {
+        if (dailyCorrectCount < 10) {
+            bi.textContent = `🎁 今日獎勵題 ${dailyCorrectCount}/10（每題固定 15 分）`;
+            bi.classList.remove('hidden');
+        } else {
+            bi.textContent = `✅ 今日獎勵已完成 10/10`;
+            bi.classList.remove('hidden');
+        }
+    }
 }
 
 function resetIntegrityState() {
