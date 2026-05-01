@@ -762,7 +762,7 @@ function loadQuestion() {
             const kbInput = document.getElementById('keyboard-math-input');
             if (kbInput) kbInput.value = ""; 
 
-            switchInputMode('draw');
+            switchInputMode('draw'); // 👈 🌟 修改這裡：改為預設手寫模式
             setTimeout(() => { resizeCanvas(); initCanvas(); }, 50);
         }
     } else {
