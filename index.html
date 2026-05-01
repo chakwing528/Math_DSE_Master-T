@@ -64,16 +64,53 @@
 
     <!-- 🌟 版本檢測雷達 -->
     <div class="fixed bottom-2 right-2 bg-slate-800 text-white text-xs px-2 py-1 rounded-md opacity-60 z-50 pointer-events-none">
-        V64
+        V71
     </div>
 
     <!-- 主容器 -->
     <main class="max-w-3xl mx-auto p-4 sm:p-6 mt-4" id="main-wrapper">
         
         <!-- ========================================== -->
+        <!-- 🌟 新增：登入畫面 (Login Screen) -->
+        <!-- ========================================== -->
+        <div id="loginScreen" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-10 text-center max-w-lg mx-auto mt-8">
+            <div class="flex justify-center items-center gap-3 mb-6">
+                <div class="bg-indigo-100 text-indigo-500 p-3 rounded-full">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                </div>
+                <h1 class="text-3xl font-bold text-slate-800">修練所登入</h1>
+            </div>
+            <p class="text-slate-500 mb-8 font-medium">請輸入班別、學號與密碼以進行認證</p>
+
+            <div class="space-y-4 text-left mb-8">
+                <div>
+                    <label class="block text-sm font-bold text-slate-600 mb-1">班別 (例: 3A)</label>
+                    <input type="text" id="loginClass" placeholder="如: 4A" class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 uppercase">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-600 mb-1">學號 (例: 15)</label>
+                    <input type="number" id="loginNum" min="0" max="40" class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-600 mb-1">認證密碼 (老師沒派發可留空)</label>
+                    <input type="password" id="loginPwd" placeholder="老師派發的密碼，沒有則留空" class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+            
+            <button id="loginSubmitBtn" onclick="if(typeof loginApp !== 'undefined') loginApp(); else alert('系統載入中，請稍候...');" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-md text-lg">
+                進入修練所 ➡️
+            </button>
+        </div>
+
+        <!-- ========================================== -->
         <!-- 畫面 1：選擇課題 (首頁) -->
         <!-- ========================================== -->
-        <div id="topicScreen" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-10 text-center max-w-3xl mx-auto">
+        <div id="topicScreen" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-10 text-center max-w-3xl mx-auto">
+            
+            <!-- 🌟 新增：登出按鈕 -->
+            <div class="flex justify-end mb-2">
+                <button onclick="logoutApp()" class="text-sm text-slate-400 hover:text-red-500 font-bold underline transition-colors">登出更換帳號</button>
+            </div>
             
             <!-- 頂部 Logo 與標題 -->
             <div class="flex justify-center items-center gap-3 mb-6 mt-2">
@@ -298,9 +335,10 @@
                                 <div id="draw-container" class="w-full border-4 border-slate-300 rounded-xl overflow-hidden shadow-inner relative h-64 sm:h-72 touch-none bg-white transition-colors">
                                     <canvas id="draw-canvas" class="absolute inset-0 w-full h-full cursor-crosshair touch-none"></canvas>
                                 </div>
-                                <div class="flex gap-4 mt-4 w-full">
-                                    <button id="clear-btn" class="flex-1 py-3 bg-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-300 transition-colors shadow-sm">清除重畫</button>
-                                    <button id="recognize-btn" class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-md flex justify-center items-center gap-2">
+                                <div class="flex gap-2 mt-4 w-full">
+                                    <button id="undo-btn" class="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors shadow-sm border border-slate-200 opacity-40 cursor-not-allowed" disabled>↩️ 上一步</button>
+                                    <button id="clear-btn" class="flex-1 py-3 bg-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-300 transition-colors shadow-sm">🗑️ 清除</button>
+                                    <button id="recognize-btn" class="flex-[2] py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-md flex justify-center items-center gap-2">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
                                         辨識並提交
                                     </button>
@@ -394,18 +432,10 @@
             <div class="border border-slate-200 rounded-xl p-5 sm:p-6 mb-6 text-left shadow-sm bg-white">
                 <h3 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">📝 遞交成績給老師</h3>
                 
-                <div class="grid grid-cols-3 gap-3 mb-4">
-                    <div class="col-span-1">
-                        <label class="block text-xs font-bold text-slate-600 mb-1">班別 (例: 3A)</label>
-                        <input type="text" id="className" placeholder="如: 4A" class="w-full p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 uppercase text-sm">
-                    </div>
-                    <div class="col-span-1">
-                        <label class="block text-xs font-bold text-slate-600 mb-1">學號 (例: 15)</label>
-                        <input type="number" id="classNumber" min="1" max="40" class="w-full p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm">
-                    </div>
-                    <div class="col-span-1">
-                        <label class="block text-xs font-bold text-slate-600 mb-1">姓名</label>
-                        <input type="text" id="studentName" class="w-full p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm">
+                <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg mb-4 flex justify-between items-center">
+                    <div>
+                        <div class="text-xs text-indigo-400 font-bold mb-1">目前登入身分</div>
+                        <div id="submitIdentityInfo" class="text-indigo-800 font-bold text-lg">讀取中...</div>
                     </div>
                 </div>
                 
@@ -437,19 +467,19 @@
     </main>
 
     <!-- ========================================== -->
-    <!-- 🌟 強制破除快取 (v=64) 加上 defer 確保載入順序 -->
+    <!-- 🌟 強制破除快取 (v=71) 加上 defer 確保載入順序 -->
     <!-- ========================================== -->
-    <script src="js/utils.js?v=64" defer></script>
-    <script src="js/topics/indices.js?v=64" defer></script>
-    <script src="js/topics/factorization.js?v=64" defer></script>
-    <script src="js/topics/rounding.js?v=64" defer></script>
-    <script src="js/topics/identities.js?v=64" defer></script>
-    <script src="js/topics/fractions.js?v=64" defer></script>
-    <script src="js/topics/binary.js?v=64" defer></script>
-    <script src="js/topics/expansion.js?v=64" defer></script>
-    <script src="js/topics/algebraic_fractions_mul_div.js?v=64" defer></script>
-    <script src="js/topics/triangle_area.js?v=64" defer></script>
-    <script src="js/app.js?v=64" defer></script>
+    <script src="js/utils.js?v=71" defer></script>
+    <script src="js/topics/indices.js?v=71" defer></script>
+    <script src="js/topics/factorization.js?v=71" defer></script>
+    <script src="js/topics/rounding.js?v=71" defer></script>
+    <script src="js/topics/identities.js?v=71" defer></script>
+    <script src="js/topics/fractions.js?v=71" defer></script>
+    <script src="js/topics/binary.js?v=71" defer></script>
+    <script src="js/topics/expansion.js?v=71" defer></script>
+    <script src="js/topics/algebraic_fractions_mul_div.js?v=71" defer></script>
+    <script src="js/topics/triangle_area.js?v=71" defer></script>
+    <script src="js/app.js?v=71" defer></script>
 
 </body>
 </html>
