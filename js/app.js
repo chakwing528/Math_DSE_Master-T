@@ -79,6 +79,20 @@ let currentRecognizedLaTeX = "";
 function getStoredData(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
 function setStoredData(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
 
+// 🎬 畫面切換時播放 fade+slide enter 動畫
+function showScreen(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.classList.remove('screen-enter');
+    void el.offsetWidth; // 強制重排以重啟動畫
+    el.classList.add('screen-enter');
+}
+// 觸覺反饋（行動裝置振動）
+function haptic(pattern) {
+    if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
+}
+
 // ==========================================
 // 🌟 核心：動態生成登入介面與強制登入邏輯
 // ==========================================
@@ -179,12 +193,12 @@ function showTopicScreen() {
     // 🌟 只要有班別與學號，就允許進入選單
     if (!savedClass || !savedNum) {
         // 未登入：強制顯示登入畫面，隱藏主畫面
-        document.getElementById('loginScreen')?.classList.remove('hidden');
+        showScreen('loginScreen');
         topicScreen?.classList.add('hidden');
     } else {
         // 已登入：隱藏登入畫面，顯示主畫面
         document.getElementById('loginScreen')?.classList.add('hidden');
-        topicScreen?.classList.remove('hidden');
+        showScreen('topicScreen');
         
         // 🌟 新增：在主選單左上角動態加入學生資訊 Badge
         if (topicScreen) {
@@ -468,8 +482,8 @@ function assignQuestionScores() {
 function selectTopic(topic) {
     currentTopic = topic;
     document.getElementById('topicScreen')?.classList.add('hidden');
-    document.getElementById('startScreen')?.classList.remove('hidden');
-    
+    showScreen('startScreen');
+
     ['btnL1', 'btnL2', 'btnL3', 'btnL4', 'btnL2A', 'btnL2B', 'btnL3A', 'btnL3B'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
@@ -718,8 +732,8 @@ function startQuizSession() {
 
     document.getElementById('topicScreen')?.classList.add('hidden');
     document.getElementById('startScreen')?.classList.add('hidden');
-    document.getElementById('endScreen')?.classList.add('hidden'); 
-    document.getElementById('appContainer')?.classList.remove('hidden');
+    document.getElementById('endScreen')?.classList.add('hidden');
+    showScreen('appContainer');
     
     const btn = document.getElementById('submitRecordBtn');
     if (btn) {
@@ -768,7 +782,7 @@ window.skipQuestion = function() {
     attemptsCount = 2; 
     addIntegrityEvent('skip', q, false); 
     
-    showFeedback('incorrect', `<div class="mb-4 text-orange-600 font-bold text-lg sm:text-xl bg-orange-50 p-3 rounded-lg border border-orange-200 shadow-sm">⏭️ 你已選擇跳過本題 (獲得 0 分)</div>`, true); 
+    showFeedback('incorrect', `<div class="mb-4 text-orange-700 font-black text-base sm:text-lg bg-white/60 p-3 rounded-xl border border-orange-200">⏭️ 暫時跳過本題，下次再戰！</div>`, true);
     
     disableAllButtons();
     
@@ -912,6 +926,7 @@ function handleAnswer(selectedOption, buttonElement) {
             dailyCorrectCount++;
             saveDailyCorrectCount(dailyCorrectCount);
             updateScoreDisplay();
+            haptic(30);
         }
 
         showFeedback('correct', selectedOption.hint, true);
@@ -1444,6 +1459,7 @@ window.confirmAndGrade = async function() {
                 dailyCorrectCount++;
                 saveDailyCorrectCount(dailyCorrectCount);
                 updateScoreDisplay();
+                haptic(30);
             }
             showFeedback('correct', finalHint, true);
             document.getElementById('draw-container')?.classList.add('border-green-500');
@@ -1501,7 +1517,8 @@ window.giveUpHandwriting = function() {
 // ==========================================
 function showEndScreen() {
     document.getElementById('appContainer')?.classList.add('hidden');
-    document.getElementById('endScreen')?.classList.remove('hidden');
+    showScreen('endScreen');
+    haptic([40, 30, 60]);
     
     // 🌟 結算作答時間 (秒)
     quizTimeTaken = Math.floor((Date.now() - quizStartTime) / 1000);
@@ -1560,9 +1577,11 @@ function showEndScreen() {
 
     const subtitle = document.getElementById('endSubtitle');
     if (subtitle) {
-        if (ratio >= 0.8) subtitle.textContent = "AI 分析顯示你對這個單元的概念掌握得非常出色！";
-        else if (ratio >= 0.5) subtitle.textContent = "AI 分析顯示你對這個單元的概念掌握得不錯！";
-        else subtitle.textContent = "AI 分析顯示你還需要多加練習，不要灰心，繼續努力！";
+        if (ratio >= 0.95)      subtitle.textContent = "你對這個單元已經爐火純青，繼續保持！";
+        else if (ratio >= 0.8)  subtitle.textContent = "概念掌握非常出色，下次挑戰更高難度！";
+        else if (ratio >= 0.6)  subtitle.textContent = "整體不錯，再針對弱點補強就更穩了！";
+        else if (ratio >= 0.4)  subtitle.textContent = "已經踏出第一步，多練幾回就會更熟練！";
+        else                    subtitle.textContent = "每一次練習都是進步，明天再來挑戰！";
     }
 
     const trackerUI = document.getElementById('topicDetailsTracker');
@@ -1638,7 +1657,9 @@ function showEndScreen() {
                         <div id="progressBarFill" class="grad-primary h-4 rounded-full transition-all duration-1000 ease-out relative" style="width: ${currentProgress}%"></div>
                     </div>
                     <div class="text-sm text-slate-500 text-center font-medium" id="progressHint">
-                        還差 <span class="text-indigo-600 font-bold tabular-nums">${nextThresholdDist} 分</span> 即可獲得抽獎機會！傳送成績後更新進度。
+                        ${nextThresholdDist <= 30 ? '🔥 距離' : '💎 距離'}下一張刮刮卡還差
+                        <span class="text-indigo-600 font-black tabular-nums">${nextThresholdDist} 分</span>
+                        ${nextThresholdDist <= 30 ? '，加油就在眼前！' : '，繼續刷題累積！'}
                     </div>
                 </div>
 
@@ -1703,11 +1724,14 @@ function updateScoreDisplay() {
     const bi = document.getElementById('dailyBonusIndicator');
     if (bi) {
         if (dailyCorrectCount < 10) {
-            bi.innerHTML = `🎁 獎勵題 <span class="tabular-nums">${dailyCorrectCount}/10</span>`;
+            bi.innerHTML = `<span class="coin-drop">🎁</span> 獎勵題 <span class="tabular-nums">${dailyCorrectCount}/10</span>`;
             bi.classList.remove('hidden');
+            // 第 9 題後即將達成，加 ping 提示
+            if (dailyCorrectCount >= 7) bi.classList.add('ping-soft');
+            else bi.classList.remove('ping-soft');
         } else {
-            bi.innerHTML = `✅ 獎勵 10/10 已完成`;
-            bi.classList.remove('hidden');
+            bi.innerHTML = `✅ 今日獎勵已達標`;
+            bi.classList.remove('hidden', 'ping-soft');
         }
     }
 }
@@ -1877,7 +1901,7 @@ function submitToGoogleSheet() {
                         }
                     }, 1500);
                 } else {
-                    if (hint) hint.innerHTML = `還差 <span class="text-indigo-600 font-bold">${pointsNeeded} 分</span> 即可獲得抽獎機會！傳送成績後更新進度。`;
+                    if (hint) hint.innerHTML = `${pointsNeeded <= 30 ? '🔥 距離' : '💎 距離'}下一張刮刮卡還差 <span class="text-indigo-600 font-black tabular-nums">${pointsNeeded} 分</span>${pointsNeeded <= 30 ? '，加油就在眼前！' : '，繼續刷題累積！'}`;
                     statusText.innerHTML = `${data.message}<br>📊 目前總分：${backendNewTotal} 分 (今日已交：${backendPlayCount} 次)。`;
                 }
                 
