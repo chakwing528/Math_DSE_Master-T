@@ -234,6 +234,67 @@
                 radial-gradient(circle at 70% 60%, rgba(255,255,255,0.35) 0%, transparent 6%),
                 radial-gradient(circle at 50% 85%, rgba(255,255,255,0.4) 0%, transparent 7%);
         }
+
+        /* ===========================================
+           🎬 畫面過場動畫
+           =========================================== */
+        @keyframes screen-enter {
+            0%   { opacity: 0; transform: translateY(12px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .screen-enter { animation: screen-enter 0.42s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+        /* ===========================================
+           💀 骨架載入（Skeleton）
+           =========================================== */
+        @keyframes skeleton-shimmer {
+            0%   { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .skeleton {
+            background: linear-gradient(90deg,
+                rgba(203, 213, 225, 0.25) 0%,
+                rgba(203, 213, 225, 0.55) 50%,
+                rgba(203, 213, 225, 0.25) 100%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.4s ease-in-out infinite;
+            border-radius: 12px;
+        }
+        .skeleton-amber {
+            background: linear-gradient(90deg,
+                rgba(252, 211, 77, 0.20) 0%,
+                rgba(252, 211, 77, 0.50) 50%,
+                rgba(252, 211, 77, 0.20) 100%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.4s ease-in-out infinite;
+            border-radius: 12px;
+        }
+
+        /* ===========================================
+           🎯 微互動 Polish
+           =========================================== */
+        @keyframes coin-drop {
+            0%   { transform: translateY(-12px) rotate(0deg); opacity: 0; }
+            40%  { opacity: 1; }
+            100% { transform: translateY(0) rotate(360deg); opacity: 1; }
+        }
+        .coin-drop { display: inline-block; animation: coin-drop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+        @keyframes ping-soft {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); }
+            50%      { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+        }
+        .ping-soft { animation: ping-soft 1.6s ease-in-out infinite; }
+
+        /* 全局按鈕觸感反饋（覆蓋舊樣式按鈕） */
+        button { transition: transform 0.12s ease-out, box-shadow 0.18s ease, background-color 0.2s ease, border-color 0.2s ease; }
+        button:not(:disabled):active { transform: scale(0.97); }
+
+        /* 焦點環優化（無障礙） */
+        button:focus-visible, input:focus-visible, textarea:focus-visible {
+            outline: 2px solid #6366f1;
+            outline-offset: 2px;
+        }
     </style>
 </head>
 <body class="grad-soft-bg min-h-screen font-sans text-slate-800 relative pb-10">
@@ -324,9 +385,9 @@
                 </div>
                 <p class="text-amber-700 text-xs sm:text-sm mb-5 font-medium">老師已派發專屬功課！完成將會記錄明細成績（每份功課限交 2 次）</p>
                 <div id="homeworkGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <div class="col-span-full text-center py-6 text-amber-600 font-bold bg-white/40 rounded-xl border border-amber-200 border-dashed">
-                        連線中，請稍候...
-                    </div>
+                    <div class="skeleton-amber h-[88px]"></div>
+                    <div class="skeleton-amber h-[88px]"></div>
+                    <div class="skeleton-amber h-[88px]"></div>
                 </div>
             </div>
 
@@ -424,7 +485,14 @@
 
                 <div id="my-rank-home" class="mb-4"></div>
                 <div id="leaderboard-home-container" class="max-h-[500px] overflow-y-auto custom-scrollbar px-1 text-left">
-                    <div class="text-center py-4 text-slate-500 font-medium">連線中，請稍候...</div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div class="skeleton h-16"></div>
+                        <div class="skeleton h-16"></div>
+                        <div class="skeleton h-16"></div>
+                        <div class="skeleton h-16"></div>
+                        <div class="skeleton h-16"></div>
+                        <div class="skeleton h-16"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -632,9 +700,14 @@
                             </div>
 
                             <!-- 全局 Loading 遮罩 -->
-                            <div id="global-loading" class="hidden absolute inset-0 bg-white/90 backdrop-blur-sm z-30 flex flex-col items-center justify-center rounded-xl border border-slate-200 shadow-sm">
-                                <svg class="animate-spin h-10 w-10 text-indigo-600 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                <p id="global-loading-text" class="text-indigo-700 font-bold text-center px-4 leading-relaxed">載入中...</p>
+                            <div id="global-loading" class="hidden absolute inset-0 bg-white/95 backdrop-blur-md z-30 flex flex-col items-center justify-center rounded-2xl border border-slate-100">
+                                <div class="relative w-14 h-14 mb-4">
+                                    <div class="absolute inset-0 rounded-full grad-primary opacity-20 animate-ping"></div>
+                                    <div class="absolute inset-0 rounded-full grad-primary flex items-center justify-center">
+                                        <svg class="w-7 h-7 text-white animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    </div>
+                                </div>
+                                <p id="global-loading-text" class="text-indigo-700 font-bold text-center px-4 leading-relaxed text-sm">載入中...</p>
                             </div>
                             
                             <!-- 終極防呆：確認視窗 -->
@@ -649,7 +722,10 @@
                             </div>
 
                         </div>
-                        <div class="mt-3 text-slate-500 text-sm text-center">💡 提示：你可以自由切換上方標籤，選擇手寫或鍵盤輸入。</div>
+                        <div class="mt-4 text-slate-400 text-xs text-center font-medium flex items-center justify-center gap-1.5">
+                            <span>💡</span>
+                            <span>切換上方標籤，可選擇手寫、鍵盤或拍照輸入</span>
+                        </div>
                     </div>
                 </div>
 
