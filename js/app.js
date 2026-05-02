@@ -524,11 +524,11 @@ function selectTopic(topic) {
             const children = btn.children;
             // children[1] = 標題（程度 X）
             if (children[1]) children[1].innerHTML = title.replace(/⭐+\s*/g, '');
-            // children[2] = 資訊槽：徽章 + 得分（緊湊版：移除描述，避免卡片過高）
+            // children[2] = 資訊槽：放大年級標示 + 得分膠囊
             if (children[2]) {
                 children[2].innerHTML = `
-                    <div class="text-[9px] font-bold uppercase tracking-wider mt-1.5 px-1.5 py-0.5 rounded-full inline-block" style="background: ${palette.bg}; color: ${palette.text}; border: 1px solid ${palette.border};">${badge}</div>
-                    <div class="mt-1.5 text-indigo-700 font-black text-[10px] bg-indigo-50 inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full border border-indigo-100">🎯 <span class="tabular-nums">${scoreVal}</span> 分</div>
+                    <div class="font-black text-base sm:text-lg mt-2 px-3 py-1 rounded-lg inline-block" style="background: ${palette.bg}; color: ${palette.text}; border: 1.5px solid ${palette.border};">${badge}</div>
+                    <div class="mt-2 text-indigo-700 font-black text-xs bg-indigo-50 inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-indigo-100">🎯 <span class="tabular-nums">${scoreVal}</span> 分</div>
                 `;
             }
         }
