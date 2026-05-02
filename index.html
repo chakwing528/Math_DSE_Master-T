@@ -760,33 +760,33 @@
                         <div class="text-[10px] sm:text-xs font-bold text-slate-500 mt-0.5">/ <span id="totalQuestions" class="tabular-nums">0</span> 分</div>
                     </div>
                 </div>
-                <!-- 右：身分 + 評級 + 鼓勵語 -->
+                <!-- 右：身分（放大）+ 評級 + 心靈雞湯 -->
                 <div class="flex-1 flex flex-col justify-center text-center sm:text-left min-w-0">
-                    <div id="endRatingBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-black bg-indigo-50 text-indigo-700 border border-indigo-100 self-center sm:self-start mb-2">
+                    <div id="endRatingBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-black bg-indigo-50 text-indigo-700 border border-indigo-100 self-center sm:self-start mb-3">
                         讀取中...
                     </div>
-                    <div class="flex items-center gap-2 mb-2 justify-center sm:justify-start">
-                        <span class="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-base border border-indigo-100 flex-shrink-0">👤</span>
+                    <div class="flex items-center gap-3 mb-3 justify-center sm:justify-start">
+                        <span class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white flex items-center justify-center text-3xl sm:text-4xl border border-indigo-100 flex-shrink-0">👤</span>
                         <div class="min-w-0">
-                            <div class="text-[9px] sm:text-[10px] text-indigo-500 font-bold tracking-widest uppercase">Student</div>
-                            <div id="submitIdentityInfo" class="text-indigo-900 font-black text-sm sm:text-base truncate">讀取中...</div>
+                            <div class="text-xs sm:text-sm text-indigo-500 font-bold tracking-widest uppercase">Student</div>
+                            <div id="submitIdentityInfo" class="text-indigo-900 font-black text-lg sm:text-2xl truncate">讀取中...</div>
                         </div>
                     </div>
-                    <p id="endSubtitle" class="text-slate-600 font-medium text-xs sm:text-sm leading-relaxed">AI 分析顯示你對這個單元的概念掌握得不錯！</p>
+                    <div class="flex items-start gap-2 mt-1">
+                        <span class="text-indigo-400 text-2xl leading-none font-serif flex-shrink-0">"</span>
+                        <p id="endSubtitle" class="text-indigo-900 font-bold text-sm sm:text-base leading-relaxed italic">想得再多，不如踏實去做。</p>
+                    </div>
                 </div>
             </div>
 
             <!-- 各課題表現明細 -->
-            <div id="topicDetailsTracker" class="mb-8 p-5 sm:p-6 rounded-2xl text-left hidden" style="background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); border: 1px solid #e0e7ff;">
+            <div id="topicDetailsTracker" class="mb-6 p-5 sm:p-6 rounded-2xl text-left hidden" style="background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); border: 1px solid #e0e7ff;">
                 <h3 class="text-base sm:text-lg font-black text-slate-800 mb-4 flex items-center gap-2"><span class="text-xl">📈</span>各課題表現明細</h3>
                 <div id="topicDetailsList" class="space-y-4"></div>
             </div>
 
-            <!-- 名言區塊 -->
-            <div class="mb-8 p-5 rounded-2xl text-left flex items-start gap-4" style="background: linear-gradient(135deg, #eef2ff 0%, #ede9fe 100%); border: 1px solid #c7d2fe;">
-                <div class="text-indigo-400 text-4xl leading-none mt-0.5 font-serif">"</div>
-                <div id="motivationalQuote" class="text-base sm:text-lg font-bold text-indigo-900 italic leading-relaxed">想得再多，不如踏實去做。</div>
-            </div>
+            <!-- 心靈雞湯已搬上 Hero Card，此處保留隱藏節點維持兼容 -->
+            <div id="motivationalQuote" class="hidden">想得再多，不如踏實去做。</div>
 
             <!-- 遞交成績區塊（精簡版：身分已在 Hero Card） -->
             <div class="rounded-2xl p-4 sm:p-5 mb-6 text-left bg-white border border-slate-200" style="box-shadow: var(--shadow-card);">
