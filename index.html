@@ -130,6 +130,23 @@
         .tabular-nums { font-variant-numeric: tabular-nums; }
 
         /* ===========================================
+           ➗ 數式字體還原（KaTeX 強制使用經典課本字體）
+           =========================================== */
+        .katex,
+        .katex .mathnormal,
+        .katex .mathit,
+        .katex .mathrm,
+        .katex .mord,
+        .katex .mop,
+        .katex .mbin,
+        .katex .mrel {
+            font-family: 'Times New Roman', 'Cambria Math', 'STIX Two Math', Times, serif !important;
+        }
+        .katex .mathnormal,
+        .katex .mathit { font-style: italic; }
+        .katex .mathrm { font-style: normal; }
+
+        /* ===========================================
            🌊 通用工具類
            =========================================== */
 
@@ -408,44 +425,17 @@
                 <button id="btn-num-10" onclick="setQuestionNum(10)" class="num-btn px-5 py-2 rounded-xl font-bold bg-transparent text-slate-600 hover:bg-white transition-all text-sm tabular-nums">10 題</button>
             </div>
 
-            <!-- 九宮格課題區塊（緊湊單行：標題 + badge） -->
+            <!-- 九宮格課題區塊（簡約：只顯示課題名） -->
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 mb-12">
-                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('indices'); else checkEnvironment();" class="topic-card group px-3.5 py-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-between gap-2" style="box-shadow: var(--shadow-subtle);">
-                    <span class="font-bold text-slate-800 text-sm sm:text-base">指數定律</span>
-                    <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full flex-shrink-0">代數</span>
-                </button>
-                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('factorization'); else checkEnvironment();" class="topic-card group px-3.5 py-3 rounded-xl bg-white border border-slate-200 hover:border-emerald-300 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-between gap-2" style="box-shadow: var(--shadow-subtle);">
-                    <span class="font-bold text-slate-800 text-sm sm:text-base">因式分解</span>
-                    <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex-shrink-0">代數</span>
-                </button>
-                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('rounding'); else checkEnvironment();" class="topic-card group px-3.5 py-3 rounded-xl bg-white border border-slate-200 hover:border-sky-300 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-between gap-2" style="box-shadow: var(--shadow-subtle);">
-                    <span class="font-bold text-slate-800 text-sm sm:text-base">近似值與捨入</span>
-                    <span class="text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full flex-shrink-0">數值</span>
-                </button>
-                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('identities'); else checkEnvironment();" class="topic-card group px-3.5 py-3 rounded-xl bg-white border border-slate-200 hover:border-rose-300 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-between gap-2" style="box-shadow: var(--shadow-subtle);">
-                    <span class="font-bold text-slate-800 text-sm sm:text-base">恆等式</span>
-                    <span class="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full flex-shrink-0">代數</span>
-                </button>
-                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('fractions'); else checkEnvironment();" class="topic-card group px-3.5 py-3 rounded-xl bg-white border border-slate-200 hover:border-amber-300 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-between gap-2" style="box-shadow: var(--shadow-subtle);">
-                    <span class="font-bold text-slate-800 text-sm sm:text-base">通分母</span>
-                    <span class="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">代數</span>
-                </button>
-                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('binary'); else checkEnvironment();" class="topic-card group px-3.5 py-3 rounded-xl bg-white border border-slate-200 hover:border-violet-300 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-between gap-2" style="box-shadow: var(--shadow-subtle);">
-                    <span class="font-bold text-slate-800 text-sm sm:text-base">二進制</span>
-                    <span class="text-[10px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full flex-shrink-0">數系</span>
-                </button>
-                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('expansion'); else checkEnvironment();" class="topic-card group px-3.5 py-3 rounded-xl bg-white border border-slate-200 hover:border-teal-300 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-between gap-2" style="box-shadow: var(--shadow-subtle);">
-                    <span class="font-bold text-slate-800 text-sm sm:text-base">恆等式展開</span>
-                    <span class="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full flex-shrink-0">代數</span>
-                </button>
-                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('alg_frac_mul_div'); else checkEnvironment();" class="topic-card group px-3.5 py-3 rounded-xl bg-white border border-slate-200 hover:border-fuchsia-300 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-between gap-2" style="box-shadow: var(--shadow-subtle);">
-                    <span class="font-bold text-slate-800 text-sm sm:text-base">代數分式乘除</span>
-                    <span class="text-[10px] font-bold text-fuchsia-600 bg-fuchsia-50 px-2 py-0.5 rounded-full flex-shrink-0">代數</span>
-                </button>
-                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('triangle_area'); else checkEnvironment();" class="topic-card group px-3.5 py-3 rounded-xl bg-white border border-slate-200 hover:border-cyan-300 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-between gap-2" style="box-shadow: var(--shadow-subtle);">
-                    <span class="font-bold text-slate-800 text-sm sm:text-base">三角形面積</span>
-                    <span class="text-[10px] font-bold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-full flex-shrink-0">幾何</span>
-                </button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('indices'); else checkEnvironment();" class="topic-card group px-4 py-3.5 rounded-xl bg-white border border-slate-200 hover:border-indigo-400 hover:-translate-y-0.5 active:translate-y-0 transition-all text-center font-bold text-slate-800 text-sm sm:text-base" style="box-shadow: var(--shadow-subtle);">指數定律</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('factorization'); else checkEnvironment();" class="topic-card group px-4 py-3.5 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:-translate-y-0.5 active:translate-y-0 transition-all text-center font-bold text-slate-800 text-sm sm:text-base" style="box-shadow: var(--shadow-subtle);">因式分解</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('rounding'); else checkEnvironment();" class="topic-card group px-4 py-3.5 rounded-xl bg-white border border-slate-200 hover:border-sky-400 hover:-translate-y-0.5 active:translate-y-0 transition-all text-center font-bold text-slate-800 text-sm sm:text-base" style="box-shadow: var(--shadow-subtle);">近似值與捨入</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('identities'); else checkEnvironment();" class="topic-card group px-4 py-3.5 rounded-xl bg-white border border-slate-200 hover:border-rose-400 hover:-translate-y-0.5 active:translate-y-0 transition-all text-center font-bold text-slate-800 text-sm sm:text-base" style="box-shadow: var(--shadow-subtle);">恆等式</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('fractions'); else checkEnvironment();" class="topic-card group px-4 py-3.5 rounded-xl bg-white border border-slate-200 hover:border-amber-400 hover:-translate-y-0.5 active:translate-y-0 transition-all text-center font-bold text-slate-800 text-sm sm:text-base" style="box-shadow: var(--shadow-subtle);">通分母</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('binary'); else checkEnvironment();" class="topic-card group px-4 py-3.5 rounded-xl bg-white border border-slate-200 hover:border-violet-400 hover:-translate-y-0.5 active:translate-y-0 transition-all text-center font-bold text-slate-800 text-sm sm:text-base" style="box-shadow: var(--shadow-subtle);">二進制</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('expansion'); else checkEnvironment();" class="topic-card group px-4 py-3.5 rounded-xl bg-white border border-slate-200 hover:border-teal-400 hover:-translate-y-0.5 active:translate-y-0 transition-all text-center font-bold text-slate-800 text-sm sm:text-base" style="box-shadow: var(--shadow-subtle);">恆等式展開</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('alg_frac_mul_div'); else checkEnvironment();" class="topic-card group px-4 py-3.5 rounded-xl bg-white border border-slate-200 hover:border-fuchsia-400 hover:-translate-y-0.5 active:translate-y-0 transition-all text-center font-bold text-slate-800 text-sm sm:text-base" style="box-shadow: var(--shadow-subtle);">代數分式乘除</button>
+                <button onclick="if(typeof selectTopic !== 'undefined') selectTopic('triangle_area'); else checkEnvironment();" class="topic-card group px-4 py-3.5 rounded-xl bg-white border border-slate-200 hover:border-cyan-400 hover:-translate-y-0.5 active:translate-y-0 transition-all text-center font-bold text-slate-800 text-sm sm:text-base" style="box-shadow: var(--shadow-subtle);">三角形面積</button>
             </div>
 
             <!-- 🏆 跨課題綜合挑戰 -->
