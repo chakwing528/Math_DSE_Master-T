@@ -572,7 +572,7 @@
                 </div>
 
                 <!-- 答題 Header -->
-                <div class="flex justify-between items-start mb-4 gap-3">
+                <div class="flex justify-between items-center mb-4 gap-3">
                     <div class="flex flex-col gap-1.5 min-w-0 flex-1">
                         <span id="topicBadge" class="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full text-xs sm:text-sm font-bold w-max max-w-full truncate">
                             課題載入中...
@@ -582,21 +582,23 @@
                         </span>
                     </div>
 
-                    <div class="text-right flex-shrink-0">
+                    <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                        <!-- 獎勵題（左側、放大 2 倍） -->
+                        <div id="dailyBonusIndicator" class="text-sm sm:text-base font-black text-amber-700 bg-amber-50 px-3 py-2 rounded-xl border border-amber-200 hidden tabular-nums"></div>
+                        <!-- 分數（右側） -->
                         <div class="text-indigo-700 font-black text-lg sm:text-xl px-3 py-1.5 rounded-xl inline-block tabular-nums" style="background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); border: 1px solid #c7d2fe;">
                             <span class="text-[10px] tracking-widest font-bold opacity-60 uppercase block leading-none mb-0.5">Score</span>
                             <span id="scoreDisplay">0</span>
                             <span class="text-xs font-bold opacity-70">分</span>
                         </div>
-                        <div id="dailyBonusIndicator" class="mt-1.5 text-[10px] font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 hidden"></div>
                     </div>
                 </div>
 
                 <!-- 進度條視覺化 -->
                 <div class="mb-6">
-                    <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center justify-between mb-2">
                         <span class="text-[10px] sm:text-xs font-bold text-slate-500 tracking-widest uppercase">Progress</span>
-                        <span id="progressText" class="text-xs font-black text-slate-700 tabular-nums">完成 0/3</span>
+                        <span id="progressText" class="text-base sm:text-lg font-black text-slate-700 tabular-nums">0 / 3</span>
                     </div>
                     <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                         <div id="quizProgressBar" class="h-2 rounded-full grad-primary transition-all duration-500 ease-out" style="width: 0%"></div>
@@ -774,7 +776,7 @@
                     </div>
                     <div class="flex items-start gap-2 mt-1">
                         <span class="text-indigo-400 text-2xl leading-none font-serif flex-shrink-0">"</span>
-                        <p id="endSubtitle" class="text-indigo-900 font-bold text-sm sm:text-base leading-relaxed italic">想得再多，不如踏實去做。</p>
+                        <p id="endSubtitle" class="text-indigo-900 font-bold text-sm sm:text-base leading-relaxed">想得再多，不如踏實去做。</p>
                     </div>
                 </div>
             </div>
