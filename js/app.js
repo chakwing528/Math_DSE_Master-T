@@ -1574,14 +1574,7 @@ function showEndScreen() {
         ratingBadge.style.color = rating.text;
     }
 
-    const subtitle = document.getElementById('endSubtitle');
-    if (subtitle) {
-        if (ratio >= 0.95)      subtitle.textContent = "你對這個單元已經爐火純青，繼續保持！";
-        else if (ratio >= 0.8)  subtitle.textContent = "概念掌握非常出色，下次挑戰更高難度！";
-        else if (ratio >= 0.6)  subtitle.textContent = "整體不錯，再針對弱點補強就更穩了！";
-        else if (ratio >= 0.4)  subtitle.textContent = "已經踏出第一步，多練幾回就會更熟練！";
-        else                    subtitle.textContent = "每一次練習都是進步，明天再來挑戰！";
-    }
+    // endSubtitle 改為顯示心靈雞湯（隨機 quote），具體文字於下方 quote pool 段落填充
 
     const trackerUI = document.getElementById('topicDetailsTracker');
     const listUI = document.getElementById('topicDetailsList');
@@ -1630,6 +1623,9 @@ function showEndScreen() {
     }
     const mQuote = document.getElementById('motivationalQuote');
     if (mQuote) mQuote.textContent = selectedQuote.text;
+    // 將心靈雞湯填入 Hero Card 的 endSubtitle 位置
+    const heroQuote = document.getElementById('endSubtitle');
+    if (heroQuote) heroQuote.textContent = selectedQuote.text;
     
     const savedClass = String(getStoredData('dse_className')).toUpperCase().trim();
     const savedNum = String(getStoredData('dse_classNumber')).trim();
