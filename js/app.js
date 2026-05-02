@@ -285,11 +285,15 @@ function renderHomeworkButtons() {
         hwGrid.innerHTML = '';
         uniqueHwNames.forEach(hwName => {
             let totalQs = dynamicHomeworkConfig.filter(c => c.hwName === hwName).reduce((sum, c) => sum + (c.qCount || 1), 0);
-            
+
             hwGrid.innerHTML += `
-            <button onclick="startHomework('${hwName}')" class="py-4 px-2 border border-amber-300 rounded-xl hover:border-amber-400 hover:shadow-md hover:bg-amber-100 transition-all bg-white shadow-sm flex flex-col items-center justify-center group">
-                <span class="text-amber-800 font-bold text-sm sm:text-base">${hwName}</span>
-                <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md mt-1 border border-amber-100">共 ${totalQs} 題 (每題 10 分)</span>
+            <button onclick="startHomework('${hwName}')" class="group relative overflow-hidden p-4 rounded-2xl bg-white border border-amber-200 hover:border-amber-400 hover:-translate-y-1 active:translate-y-0 transition-all flex flex-col items-start text-left" style="box-shadow: var(--shadow-subtle);">
+                <div class="flex items-center justify-between w-full mb-2">
+                    <span class="text-2xl">📋</span>
+                    <span class="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 tabular-nums">${totalQs} 題</span>
+                </div>
+                <span class="text-amber-900 font-black text-sm sm:text-base leading-tight">${hwName}</span>
+                <span class="text-[10px] text-amber-600 font-bold mt-1.5 uppercase tracking-wider">每題 10 分</span>
             </button>
             `;
         });
@@ -340,37 +344,74 @@ function renderLeaderboards(overrideClass = null, overrideNum = null) {
         }
     });
 
-    let html = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-2">';
-    globalLeaderboard.slice(0, 20).forEach((student, index) => {
-        let rankIcon = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `<span class="inline-block w-6 text-center text-slate-400 font-bold text-sm">${index + 1}.</span>`));
-        
-        html += `<div class="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md"><div class="flex items-center gap-3">${rankIcon}<span class="font-bold text-slate-700 text-base">${student.className} (${student.classNum}) ${student.studentName}</span></div><div class="text-right flex flex-col justify-center"><span class="text-indigo-600 font-bold text-base">${student.totalScore} 分</span><span class="text-slate-400 font-bold text-[11px] mt-0.5">今日: ${student.playCountToday || 0} 次</span></div></div>`;
-    });
-    html += '</div>';
+    function renderLbCard(student, index, compact) {
+        const padding = compact ? 'p-3' : 'p-3.5';
+        const nameSize = compact ? 'text-sm sm:text-base' : 'text-sm sm:text-base';
+        const scoreSize = compact ? 'text-base' : 'text-lg';
+        // 前 3 名特殊樣式
+        let bgStyle = '', borderStyle = 'border-slate-100', rankBadge = '', scoreColor = 'text-indigo-600';
+        if (index === 0) {
+            bgStyle = 'background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);';
+            borderStyle = 'border-amber-300';
+            scoreColor = 'text-amber-700';
+            rankBadge = `<span class="inline-flex items-center justify-center w-9 h-9 rounded-xl text-lg" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); box-shadow: 0 4px 10px -2px rgba(245,158,11,0.5);">🥇</span>`;
+        } else if (index === 1) {
+            bgStyle = 'background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);';
+            borderStyle = 'border-slate-300';
+            scoreColor = 'text-slate-700';
+            rankBadge = `<span class="inline-flex items-center justify-center w-9 h-9 rounded-xl text-lg" style="background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%); box-shadow: 0 4px 10px -2px rgba(148,163,184,0.5);">🥈</span>`;
+        } else if (index === 2) {
+            bgStyle = 'background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);';
+            borderStyle = 'border-rose-200';
+            scoreColor = 'text-rose-700';
+            rankBadge = `<span class="inline-flex items-center justify-center w-9 h-9 rounded-xl text-lg" style="background: linear-gradient(135deg, #fca5a5 0%, #b45309 100%); box-shadow: 0 4px 10px -2px rgba(180,83,9,0.4);">🥉</span>`;
+        } else {
+            bgStyle = 'background: white;';
+            rankBadge = `<span class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 text-slate-500 font-black text-sm tabular-nums">${index + 1}</span>`;
+        }
+        return `<div class="flex justify-between items-center ${padding} rounded-xl border ${borderStyle} transition-all hover:-translate-y-0.5" style="${bgStyle} box-shadow: var(--shadow-subtle);">
+            <div class="flex items-center gap-3 min-w-0">
+                ${rankBadge}
+                <span class="font-bold text-slate-800 ${nameSize} truncate">${student.className} <span class="text-slate-400 font-medium tabular-nums">(${student.classNum})</span> ${student.studentName}</span>
+            </div>
+            <div class="text-right flex flex-col justify-center flex-shrink-0 ml-2">
+                <span class="${scoreColor} font-black ${scoreSize} tabular-nums">${student.totalScore}<span class="text-xs font-bold ml-0.5">分</span></span>
+                <span class="text-slate-400 font-bold text-[10px] mt-0.5 tabular-nums">今日 ${student.playCountToday || 0} 次</span>
+            </div>
+        </div>`;
+    }
 
+    let html = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pb-2">';
+    globalLeaderboard.slice(0, 20).forEach((student, index) => { html += renderLbCard(student, index, false); });
+    html += '</div>';
     if (homeContainer) homeContainer.innerHTML = html;
-    
-    let endHtml = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-2">';
-    globalLeaderboard.slice(0, 20).forEach((student, index) => {
-        let rankIcon = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `<span class="inline-block w-6 text-center text-slate-400 font-bold text-sm">${index + 1}.</span>`));
-        
-        endHtml += `<div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md"><div class="flex items-center gap-2">${rankIcon}<span class="font-bold text-slate-700 text-sm sm:text-base">${student.className} (${student.classNum}) ${student.studentName}</span></div><div class="text-right flex flex-col justify-center"><span class="text-indigo-600 font-bold text-sm sm:text-base">${student.totalScore} 分</span><span class="text-slate-400 font-bold text-[10px] mt-0.5">今日: ${student.playCountToday || 0} 次</span></div></div>`;
-    });
+
+    let endHtml = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pb-2">';
+    globalLeaderboard.slice(0, 20).forEach((student, index) => { endHtml += renderLbCard(student, index, true); });
     endHtml += '</div>';
     if (endContainer) endContainer.innerHTML = endHtml;
 
     let myRankHtml = '';
     if (currentUserClass && currentUserNum) {
         if (userRank !== -1) {
-            myRankHtml = `<div class="bg-[#FFF3C4] border border-[#FDE68A] p-4 rounded-xl flex justify-between items-center shadow-sm mb-6">
-                <span class="font-bold text-amber-800 text-base flex items-center gap-2"><span class="text-xl">👉</span> 你的目前排名：第 ${userRank} 名</span>
-                <div class="text-right flex flex-col justify-center">
-                    <span class="text-amber-800 font-bold text-lg">${userScore} 分</span>
-                    <span class="text-amber-600 font-bold text-xs mt-0.5">今日已交: ${userPlayCount} 次</span>
+            myRankHtml = `<div class="rounded-2xl p-4 sm:p-5 mb-6 flex justify-between items-center" style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1px solid var(--c-amber-200); box-shadow: var(--shadow-card);">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl sm:text-3xl">🎯</span>
+                    <div class="text-left">
+                        <div class="text-[10px] sm:text-xs font-bold text-amber-600 tracking-widest uppercase">Your Rank</div>
+                        <div class="font-black text-amber-800 text-base sm:text-lg">第 <span class="text-2xl tabular-nums">${userRank}</span> 名</div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-amber-800 font-black text-2xl sm:text-3xl tabular-nums">${userScore}<span class="text-sm font-bold ml-1">分</span></div>
+                    <div class="text-amber-600 font-bold text-[10px] sm:text-xs mt-0.5 tabular-nums">今日已交 ${userPlayCount} 次</div>
                 </div>
             </div>`;
         } else {
-            myRankHtml = `<div class="bg-slate-100 border border-slate-300 p-3 rounded-lg flex justify-between items-center shadow-sm mb-6"><span class="font-bold text-slate-600">👉 你的目前排名：未上榜</span><span class="text-slate-500 font-bold text-sm">繼續刷題累積積分吧！</span></div>`;
+            myRankHtml = `<div class="rounded-2xl p-4 mb-6 flex justify-between items-center bg-slate-50 border border-slate-200">
+                <span class="font-bold text-slate-600 flex items-center gap-2"><span class="text-xl">📊</span>未上榜</span>
+                <span class="text-slate-500 font-bold text-xs sm:text-sm">繼續刷題累積積分吧！</span>
+            </div>`;
         }
     }
     if (myRankHome) myRankHome.innerHTML = myRankHtml;
@@ -460,12 +501,23 @@ function selectTopic(topic) {
         const btn = document.getElementById('btn' + lvl.id.toUpperCase());
         if (btn) {
             btn.classList.remove('hidden');
-            let colorClass = lvl.id.includes('1') ? 'bg-green-100 text-green-700' : (lvl.id.includes('2') ? 'bg-blue-100 text-blue-700' : (lvl.id.includes('3') ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'));
-            
-            let btnFont = btn.querySelector('.font-bold');
-            if(btnFont) btnFont.innerHTML = title + `<div class="mt-1"><span class="inline-block px-2 py-0.5 ${colorClass} text-xs rounded-md font-bold">${badge}</span></div>`;
-            
-            if(btn.lastElementChild) btn.lastElementChild.innerHTML = desc + `<div class="mt-3 text-indigo-600 font-bold text-sm bg-indigo-50 inline-block px-3 py-1 rounded-full shadow-sm border border-indigo-100">🎯 答對得 ${scoreVal} 分</div>`;
+            // 顏色語意：1=emerald, 2=sky, 3=violet, 4=amber
+            const palette = lvl.id.includes('1') ? { bg: '#ecfdf5', text: '#065f46', border: '#a7f3d0' }
+                          : lvl.id.includes('4') ? { bg: '#fffbeb', text: '#92400e', border: '#fcd34d' }
+                          : lvl.id.includes('3') ? { bg: '#faf5ff', text: '#5b21b6', border: '#ddd6fe' }
+                          : { bg: '#f0f9ff', text: '#075985', border: '#bae6fd' };
+
+            const children = btn.children;
+            // children[1] = 標題（程度 X）
+            if (children[1]) children[1].innerHTML = title.replace(/⭐+\s*/g, '');
+            // children[2] = 資訊槽：徽章 + 描述 + 得分膠囊
+            if (children[2]) {
+                children[2].innerHTML = `
+                    <div class="text-[10px] font-bold uppercase tracking-wider mt-1 px-2 py-0.5 rounded-full inline-block" style="background: ${palette.bg}; color: ${palette.text}; border: 1px solid ${palette.border};">${badge}</div>
+                    <div class="text-xs text-slate-500 leading-relaxed mt-2 font-medium">${desc || ''}</div>
+                    <div class="mt-3 text-indigo-700 font-black text-xs bg-indigo-50 inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-indigo-100">🎯 <span class="tabular-nums">${scoreVal}</span> 分/題</div>
+                `;
+            }
         }
     });
 }
@@ -756,7 +808,9 @@ function loadQuestion() {
     }
     
     const pText = document.getElementById('progressText');
-    if (pText) pText.textContent = `完成 ${currentQuestionIndex}/${questionBank.length}`;
+    if (pText) pText.textContent = `${currentQuestionIndex} / ${questionBank.length}`;
+    const pBar = document.getElementById('quizProgressBar');
+    if (pBar) pBar.style.width = (questionBank.length > 0 ? (currentQuestionIndex / questionBank.length) * 100 : 0) + '%';
     
     hideFeedback();
     
@@ -882,9 +936,30 @@ function showFeedback(type, message, showNextBtn) {
     document.getElementById('feedbackArea')?.classList.remove('hidden');
     const fbBox = document.getElementById('feedbackBox');
     if (fbBox) {
-        fbBox.className = type === 'correct' ? 'p-4 rounded-xl border bg-green-50 border-green-200 w-full overflow-hidden shadow-sm' : 'p-4 rounded-xl border bg-orange-50 border-orange-200 w-full overflow-hidden shadow-sm';
+        if (type === 'correct') {
+            fbBox.className = 'p-4 sm:p-5 rounded-2xl border w-full overflow-hidden';
+            fbBox.style.cssText = 'background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-color: #6ee7b7; box-shadow: 0 8px 20px -8px rgba(16,185,129,0.25);';
+            // 短暫脈搏
+            fbBox.animate([
+                { transform: 'scale(0.96)', opacity: 0.6 },
+                { transform: 'scale(1.01)', opacity: 1 },
+                { transform: 'scale(1)', opacity: 1 }
+            ], { duration: 360, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' });
+        } else {
+            fbBox.className = 'p-4 sm:p-5 rounded-2xl border w-full overflow-hidden';
+            fbBox.style.cssText = 'background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border-color: #fda4af; box-shadow: 0 8px 20px -8px rgba(244,63,94,0.2);';
+            // 短暫搖晃
+            fbBox.animate([
+                { transform: 'translateX(0)' },
+                { transform: 'translateX(-6px)' },
+                { transform: 'translateX(5px)' },
+                { transform: 'translateX(-3px)' },
+                { transform: 'translateX(2px)' },
+                { transform: 'translateX(0)' }
+            ], { duration: 380, easing: 'ease-out' });
+        }
     }
-    
+
     const fbMsg = document.getElementById('feedbackMessage');
     if (fbMsg) fbMsg.innerHTML = message;
     
@@ -1432,15 +1507,59 @@ function showEndScreen() {
     quizTimeTaken = Math.floor((Date.now() - quizStartTime) / 1000);
     
     let totalPossibleScore = questionBank.reduce((sum, q) => sum + (q.scoreVal || 10), 0);
-    
+    let ratio = totalPossibleScore > 0 ? score / totalPossibleScore : 0;
+
     const fScore = document.getElementById('finalScore');
-    if (fScore) fScore.textContent = score;
+    if (fScore) {
+        // 數字滾動動畫
+        const t0 = performance.now();
+        const tick = (now) => {
+            const p = Math.min(1, (now - t0) / 1400);
+            const eased = 1 - Math.pow(1 - p, 3);
+            fScore.textContent = Math.round(score * eased);
+            if (p < 1) requestAnimationFrame(tick);
+            else fScore.textContent = score;
+        };
+        requestAnimationFrame(tick);
+    }
     const tQs = document.getElementById('totalQuestions');
     if (tQs) tQs.textContent = totalPossibleScore;
-    
+
+    // 圓環動畫填充
+    const ring = document.getElementById('scoreRingFill');
+    if (ring) {
+        const circumference = 2 * Math.PI * 44; // ~276.46
+        ring.setAttribute('stroke-dasharray', circumference);
+        ring.setAttribute('stroke-dashoffset', circumference);
+        // 顏色依表現切換
+        const stops = ratio >= 0.8 ? ['#10b981', '#059669']
+                    : ratio >= 0.5 ? ['#6366f1', '#8b5cf6']
+                    : ['#f43f5e', '#fb7185'];
+        const grad = document.querySelector('#ringGradient');
+        if (grad) {
+            const s = grad.querySelectorAll('stop');
+            if (s.length >= 2) { s[0].setAttribute('stop-color', stops[0]); s[1].setAttribute('stop-color', stops[1]); }
+        }
+        setTimeout(() => { ring.setAttribute('stroke-dashoffset', circumference * (1 - ratio)); }, 100);
+    }
+
+    // 表現徽章
+    const ratingBadge = document.getElementById('endRatingBadge');
+    if (ratingBadge) {
+        let rating;
+        if (ratio >= 0.95)      rating = { label: '🌟 完美表現', bg: '#fef3c7', border: '#fde68a', text: '#92400e' };
+        else if (ratio >= 0.8)  rating = { label: '🏆 優秀', bg: '#ecfdf5', border: '#a7f3d0', text: '#065f46' };
+        else if (ratio >= 0.6)  rating = { label: '👍 良好', bg: '#eef2ff', border: '#c7d2fe', text: '#3730a3' };
+        else if (ratio >= 0.4)  rating = { label: '💪 合格', bg: '#f0f9ff', border: '#bae6fd', text: '#075985' };
+        else                    rating = { label: '🌱 加油', bg: '#fff1f2', border: '#fecdd3', text: '#9f1239' };
+        ratingBadge.textContent = rating.label;
+        ratingBadge.style.background = rating.bg;
+        ratingBadge.style.borderColor = rating.border;
+        ratingBadge.style.color = rating.text;
+    }
+
     const subtitle = document.getElementById('endSubtitle');
     if (subtitle) {
-        let ratio = score / totalPossibleScore;
         if (ratio >= 0.8) subtitle.textContent = "AI 分析顯示你對這個單元的概念掌握得非常出色！";
         else if (ratio >= 0.5) subtitle.textContent = "AI 分析顯示你對這個單元的概念掌握得不錯！";
         else subtitle.textContent = "AI 分析顯示你還需要多加練習，不要灰心，繼續努力！";
@@ -1457,17 +1576,23 @@ function showEndScreen() {
             for (let t in topicScores) {
                 let s = topicScores[t];
                 let pct = s.total > 0 ? Math.round((s.earned / s.total) * 100) : 0;
-                let barColor = pct >= 80 ? 'bg-green-500' : (pct >= 50 ? 'bg-amber-400' : 'bg-red-500');
-                let icon = pct >= 80 ? '✅' : (pct >= 50 ? '⚠️' : '❌');
-                
+                let badge, barGrad;
+                if (pct >= 90)      { badge = { label: '完美', bg: '#fef3c7', text: '#92400e' }; barGrad = 'linear-gradient(90deg, #fbbf24, #f59e0b)'; }
+                else if (pct >= 75) { badge = { label: '優秀', bg: '#ecfdf5', text: '#065f46' }; barGrad = 'linear-gradient(90deg, #10b981, #059669)'; }
+                else if (pct >= 50) { badge = { label: '合格', bg: '#eef2ff', text: '#3730a3' }; barGrad = 'linear-gradient(90deg, #6366f1, #8b5cf6)'; }
+                else                { badge = { label: '加油', bg: '#fff1f2', text: '#9f1239' }; barGrad = 'linear-gradient(90deg, #f43f5e, #fb7185)'; }
+
                 trackerHtml += `
                 <div>
-                    <div class="flex justify-between text-sm sm:text-base font-bold text-slate-600 mb-1">
-                        <span>${t}</span>
-                        <span>${s.earned} / ${s.total} (${pct}%) ${icon}</span>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <span class="text-sm sm:text-base font-black text-slate-800">${t}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-black text-slate-500 tabular-nums">${s.earned}/${s.total}</span>
+                            <span class="text-[10px] font-black px-2 py-0.5 rounded-full" style="background: ${badge.bg}; color: ${badge.text};">${badge.label}</span>
+                        </div>
                     </div>
-                    <div class="w-full bg-slate-200 rounded-full h-2.5 shadow-inner">
-                        <div class="${barColor} h-2.5 rounded-full transition-all" style="width: ${pct}%"></div>
+                    <div class="w-full bg-white/60 rounded-full h-2 overflow-hidden border border-slate-100">
+                        <div class="h-2 rounded-full transition-all duration-1000 ease-out" style="width: ${pct}%; background: ${barGrad};"></div>
                     </div>
                 </div>`;
             }
@@ -1554,14 +1679,34 @@ function showEndScreen() {
 
 function updateScoreDisplay() {
     const sd = document.getElementById('scoreDisplay');
-    if (sd) sd.textContent = score;
+    if (sd) {
+        const prev = parseInt(sd.textContent) || 0;
+        if (prev !== score) {
+            // 數字滾動動畫（300ms）
+            const start = prev, diff = score - prev, t0 = performance.now();
+            const ease = (t) => 1 - Math.pow(1 - t, 3);
+            const tick = (now) => {
+                const p = Math.min(1, (now - t0) / 380);
+                sd.textContent = Math.round(start + diff * ease(p));
+                if (p < 1) requestAnimationFrame(tick);
+                else sd.textContent = score;
+            };
+            requestAnimationFrame(tick);
+            // 短暫高亮
+            sd.style.transition = 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            sd.style.transform = 'scale(1.18)';
+            setTimeout(() => { sd.style.transform = 'scale(1)'; }, 260);
+        } else {
+            sd.textContent = score;
+        }
+    }
     const bi = document.getElementById('dailyBonusIndicator');
     if (bi) {
         if (dailyCorrectCount < 10) {
-            bi.textContent = `🎁 今日獎勵題 ${dailyCorrectCount}/10（每題固定 15 分）`;
+            bi.innerHTML = `🎁 獎勵題 <span class="tabular-nums">${dailyCorrectCount}/10</span>`;
             bi.classList.remove('hidden');
         } else {
-            bi.textContent = `✅ 今日獎勵已完成 10/10`;
+            bi.innerHTML = `✅ 獎勵 10/10 已完成`;
             bi.classList.remove('hidden');
         }
     }
