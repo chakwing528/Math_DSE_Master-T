@@ -158,6 +158,7 @@ window.loginApp = async function() {
         setStoredData('dse_classNumber', cNum);
         setStoredData('dse_studentName', result.studentName || "");
         setStoredData('dse_password', cPwd);
+        setStoredData('dse_sessionToken', result.sessionToken || ""); // 🔐 V2 安全 Token
 
         showTopicScreen();
         renderLeaderboards();
@@ -173,7 +174,93 @@ window.logoutApp = function() {
         setStoredData('dse_classNumber', '');
         setStoredData('dse_studentName', '');
         setStoredData('dse_password', '');
+        setStoredData('dse_sessionToken', ''); // 🔐 清除 V2 Token
         location.reload();
+    }
+};
+
+// ==========================================
+// 🔐 修改密碼功能
+// ==========================================
+window.openChangePwdModal = function() {
+    const modal = document.getElementById('changePasswordModal');
+    if (!modal) return;
+    // 檢查 sessionToken 是否存在
+    if (!getStoredData('dse_sessionToken')) {
+        alert("⚠️ 認證已逾期，請先登出後重新登入再修改密碼。");
+        return;
+    }
+    // 重置欄位
+    ['oldPwdInput', 'newPwdInput', 'newPwdConfirmInput'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const statusBox = document.getElementById('changePwdStatus');
+    if (statusBox) statusBox.classList.add('hidden');
+    modal.classList.remove('hidden');
+};
+
+window.closeChangePwdModal = function() {
+    const modal = document.getElementById('changePasswordModal');
+    if (modal) modal.classList.add('hidden');
+};
+
+function showChangePwdStatus(msg, isError) {
+    const box = document.getElementById('changePwdStatus');
+    if (!box) return;
+    box.textContent = msg;
+    box.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-700', 'bg-rose-50', 'text-rose-700');
+    if (isError) {
+        box.classList.add('bg-rose-50', 'text-rose-700');
+    } else {
+        box.classList.add('bg-emerald-50', 'text-emerald-700');
+    }
+}
+
+window.submitChangePassword = async function() {
+    const oldPwd = document.getElementById('oldPwdInput')?.value || "";
+    const newPwd = document.getElementById('newPwdInput')?.value || "";
+    const newPwd2 = document.getElementById('newPwdConfirmInput')?.value || "";
+    const btn = document.getElementById('changePwdSubmitBtn');
+
+    // 前端驗證
+    if (newPwd.length < 4) { showChangePwdStatus("❌ 新密碼至少 4 個字元", true); return; }
+    if (newPwd.length > 30) { showChangePwdStatus("❌ 新密碼不可超過 30 個字元", true); return; }
+    if (newPwd !== newPwd2) { showChangePwdStatus("❌ 兩次輸入的新密碼不一致", true); return; }
+
+    const sessionToken = getStoredData('dse_sessionToken');
+    if (!sessionToken) {
+        showChangePwdStatus("⚠️ 認證已逾期，請重新登入", true);
+        return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = "處理中..."; }
+
+    try {
+        const formData = new URLSearchParams();
+        formData.append('action', 'change_password');
+        formData.append('sessionToken', sessionToken);
+        formData.append('oldPassword', oldPwd);
+        formData.append('newPassword', newPwd);
+
+        const result = await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData }).then(r => r.json());
+
+        if (result.success) {
+            // 更新 localStorage
+            setStoredData('dse_password', newPwd);
+            showChangePwdStatus(result.message || "✅ 密碼修改成功！", false);
+            if (typeof haptic === 'function') haptic([40, 30, 60]);
+            setTimeout(() => {
+                closeChangePwdModal();
+                alert(result.message || "✅ 密碼修改成功！");
+            }, 800);
+        } else {
+            showChangePwdStatus(result.message || "❌ 修改失敗", true);
+        }
+    } catch (err) {
+        showChangePwdStatus("⚠️ 網路連線失敗，請稍後再試", true);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "確認修改"; }
     }
 };
 
