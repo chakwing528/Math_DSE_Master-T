@@ -403,25 +403,23 @@ function showTopicScreen() {
         document.getElementById('loginScreen')?.classList.add('hidden');
         showScreen('topicScreen');
         
-        // 🌟 新增：在主選單左上角動態加入學生資訊 Badge + 查看成績按鈕
+        // 🌟 在主選單左上角動態加入學生資訊 Badge + 查看成績按鈕
         if (topicScreen) {
             topicScreen.classList.add('relative'); // 確保可以絕對定位
             let infoBadge = document.getElementById('student-info-badge');
             if (!infoBadge) {
                 infoBadge = document.createElement('div');
                 infoBadge.id = 'student-info-badge';
-                // 使用 Tailwind CSS 設定左上角絕對定位與樣式
-                infoBadge.className = 'absolute top-4 left-4 sm:top-6 sm:left-6 flex flex-col items-start gap-1.5 z-10';
                 topicScreen.appendChild(infoBadge);
             }
-            // 寫入學生資料 + 查看成績按鈕
+            // ⚠️ 每次都重新套用 className（避免舊樣式殘留）
+            infoBadge.className = 'absolute top-4 left-4 sm:top-6 sm:left-6 flex flex-col items-start gap-2 z-20';
             infoBadge.innerHTML = `
-                <div class="bg-indigo-50 border border-indigo-200 text-indigo-800 px-3 py-1.5 rounded-lg text-sm sm:text-base font-bold shadow-sm flex items-center gap-2">
+                <div class="bg-indigo-50 border border-indigo-200 text-indigo-800 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold shadow-sm">
                     🎓 ${savedClass} 班 - ${savedNum} 號 (${savedName})
                 </div>
-                <button onclick="openGradesModal()" class="text-xs font-black px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all hover:-translate-y-0.5 active:translate-y-0" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; border: 1px solid #fcd34d; box-shadow: var(--shadow-subtle);">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                    📊 查看成績
+                <button onclick="openGradesModal()" class="font-black text-sm sm:text-base px-4 py-2 rounded-xl flex items-center gap-2 transition-all hover:-translate-y-0.5 active:translate-y-0" style="background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #ffffff; border: 1.5px solid #d97706; box-shadow: 0 8px 18px -6px rgba(245, 158, 11, 0.55);">
+                    📊 查看校內成績
                 </button>
             `;
         }
