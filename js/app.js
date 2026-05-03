@@ -264,6 +264,122 @@ window.submitChangePassword = async function() {
     }
 };
 
+// ==========================================
+// 📊 查看校內成績功能
+// ==========================================
+window.openGradesModal = function() {
+    const modal = document.getElementById('schoolGradesModal');
+    if (!modal) return;
+    if (!getStoredData('dse_sessionToken')) {
+        alert("⚠️ 認證已逾期，請先登出後重新登入再查看成績。");
+        return;
+    }
+
+    // 顯示身分（從 localStorage 取，僅用於 UI 顯示）
+    const idEl = document.getElementById('schoolGradesIdentity');
+    if (idEl) {
+        const cls = getStoredData('dse_className');
+        const num = getStoredData('dse_classNumber');
+        const nm  = getStoredData('dse_studentName');
+        idEl.textContent = `${cls} 班 - ${num} 號 (${nm})`;
+    }
+
+    // 重置內容為骨架載入
+    const content = document.getElementById('schoolGradesContent');
+    if (content) {
+        content.innerHTML = `
+            <div class="space-y-2">
+                <div class="skeleton h-14"></div>
+                <div class="skeleton h-14"></div>
+                <div class="skeleton h-14"></div>
+                <div class="skeleton h-14"></div>
+            </div>`;
+    }
+
+    modal.classList.remove('hidden');
+    fetchSchoolGrades();
+};
+
+window.closeGradesModal = function() {
+    const modal = document.getElementById('schoolGradesModal');
+    if (modal) modal.classList.add('hidden');
+};
+
+async function fetchSchoolGrades() {
+    const content = document.getElementById('schoolGradesContent');
+    if (!content) return;
+
+    const sessionToken = getStoredData('dse_sessionToken');
+    if (!sessionToken) {
+        content.innerHTML = `<div class="text-center py-8 text-rose-600 font-bold">⚠️ 認證已逾期，請重新登入</div>`;
+        return;
+    }
+
+    try {
+        const formData = new URLSearchParams();
+        formData.append('action', 'fetch_school_grades');
+        formData.append('sessionToken', sessionToken);
+
+        const result = await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData }).then(r => r.json());
+
+        if (!result.success) {
+            content.innerHTML = `<div class="text-center py-8 text-rose-600 font-bold">${result.message || '❌ 讀取失敗'}</div>`;
+            return;
+        }
+
+        const grades = Array.isArray(result.grades) ? result.grades : [];
+        if (grades.length === 0) {
+            content.innerHTML = `
+                <div class="text-center py-10 px-6 rounded-2xl" style="background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); border: 1px dashed #c7d2fe;">
+                    <div class="text-5xl mb-3 opacity-50">📭</div>
+                    <div class="text-slate-600 font-bold text-base">目前尚無你的成績紀錄</div>
+                    <div class="text-slate-400 text-xs mt-1.5 font-medium">老師可能未公布成績，請稍後再來查看</div>
+                </div>`;
+            return;
+        }
+
+        // 動態渲染成績卡片（保留原始順序）
+        let html = '<div class="space-y-2.5">';
+        grades.forEach((g, idx) => {
+            const examName = g.examName || `項目 ${idx + 1}`;
+            const rawScore = g.score;
+            const hasScore = rawScore !== "" && rawScore !== null && rawScore !== undefined;
+            const isNumeric = typeof rawScore === 'number';
+            const scoreDisplay = hasScore ? rawScore : '—';
+
+            // 根據分數動態配色（僅當為數字時）
+            let palette = { bg: '#f8fafc', border: '#e2e8f0', text: '#475569', tag: '#94a3b8' };
+            if (isNumeric) {
+                if (rawScore >= 80)      palette = { bg: '#ecfdf5', border: '#a7f3d0', text: '#065f46', tag: '#10b981' };
+                else if (rawScore >= 60) palette = { bg: '#eef2ff', border: '#c7d2fe', text: '#3730a3', tag: '#6366f1' };
+                else if (rawScore >= 40) palette = { bg: '#fffbeb', border: '#fde68a', text: '#92400e', tag: '#f59e0b' };
+                else                     palette = { bg: '#fff1f2', border: '#fecdd3', text: '#9f1239', tag: '#f43f5e' };
+            } else if (!hasScore) {
+                palette = { bg: '#f8fafc', border: '#e2e8f0', text: '#94a3b8', tag: '#cbd5e1' };
+            }
+
+            html += `
+                <div class="rounded-xl p-3.5 sm:p-4 flex items-center justify-between gap-3" style="background: ${palette.bg}; border: 1px solid ${palette.border};">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="w-2 h-10 rounded-full flex-shrink-0" style="background: ${palette.tag};"></span>
+                        <div class="min-w-0">
+                            <div class="text-[10px] font-bold tracking-widest uppercase" style="color: ${palette.tag};">Exam</div>
+                            <div class="font-black text-sm sm:text-base truncate" style="color: ${palette.text};">${examName}</div>
+                        </div>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <div class="font-black text-2xl sm:text-3xl tabular-nums leading-none" style="color: ${palette.text};">${scoreDisplay}</div>
+                        ${isNumeric ? `<div class="text-[10px] font-bold opacity-60 mt-0.5" style="color: ${palette.text};">分</div>` : ''}
+                    </div>
+                </div>`;
+        });
+        html += '</div>';
+        content.innerHTML = html;
+    } catch (err) {
+        content.innerHTML = `<div class="text-center py-8 text-rose-600 font-bold">⚠️ 網路連線失敗，請稍後再試</div>`;
+    }
+}
+
 function showTopicScreen() {
     initLoginUI(); // 確保登入介面已生成
     
@@ -287,7 +403,7 @@ function showTopicScreen() {
         document.getElementById('loginScreen')?.classList.add('hidden');
         showScreen('topicScreen');
         
-        // 🌟 新增：在主選單左上角動態加入學生資訊 Badge
+        // 🌟 新增：在主選單左上角動態加入學生資訊 Badge + 查看成績按鈕
         if (topicScreen) {
             topicScreen.classList.add('relative'); // 確保可以絕對定位
             let infoBadge = document.getElementById('student-info-badge');
@@ -295,11 +411,19 @@ function showTopicScreen() {
                 infoBadge = document.createElement('div');
                 infoBadge.id = 'student-info-badge';
                 // 使用 Tailwind CSS 設定左上角絕對定位與樣式
-                infoBadge.className = 'absolute top-4 left-4 sm:top-6 sm:left-6 bg-indigo-50 border border-indigo-200 text-indigo-800 px-3 py-1.5 rounded-lg text-sm sm:text-base font-bold shadow-sm flex items-center gap-2 z-10';
+                infoBadge.className = 'absolute top-4 left-4 sm:top-6 sm:left-6 flex flex-col items-start gap-1.5 z-10';
                 topicScreen.appendChild(infoBadge);
             }
-            // 寫入學生資料
-            infoBadge.innerHTML = `<span>🎓 ${savedClass} 班 - ${savedNum} 號 (${savedName})</span>`;
+            // 寫入學生資料 + 查看成績按鈕
+            infoBadge.innerHTML = `
+                <div class="bg-indigo-50 border border-indigo-200 text-indigo-800 px-3 py-1.5 rounded-lg text-sm sm:text-base font-bold shadow-sm flex items-center gap-2">
+                    🎓 ${savedClass} 班 - ${savedNum} 號 (${savedName})
+                </div>
+                <button onclick="openGradesModal()" class="text-xs font-black px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all hover:-translate-y-0.5 active:translate-y-0" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; border: 1px solid #fcd34d; box-shadow: var(--shadow-subtle);">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    📊 查看成績
+                </button>
+            `;
         }
         
         // 更新結算畫面顯示身分
