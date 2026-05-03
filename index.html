@@ -821,6 +821,32 @@
             </div>
         </div>
 
+        <!-- 📊 校內成績 Modal -->
+        <div id="schoolGradesModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 sm:p-7 border border-slate-100 max-h-[85vh] flex flex-col" style="box-shadow: var(--shadow-elevated);">
+                <div class="flex flex-col items-center mb-5 flex-shrink-0">
+                    <div class="grad-primary text-white p-3 rounded-2xl mb-3" style="box-shadow: var(--shadow-glow);">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    </div>
+                    <h3 class="text-2xl font-black text-slate-900">📊 我的校內成績</h3>
+                    <p id="schoolGradesIdentity" class="text-slate-500 text-xs sm:text-sm mt-1 font-medium">讀取中...</p>
+                </div>
+
+                <!-- 成績列表容器 -->
+                <div id="schoolGradesContent" class="overflow-y-auto custom-scrollbar flex-1 mb-4 -mx-1 px-1">
+                    <!-- 預設：載入骨架 -->
+                    <div class="space-y-2">
+                        <div class="skeleton h-14"></div>
+                        <div class="skeleton h-14"></div>
+                        <div class="skeleton h-14"></div>
+                        <div class="skeleton h-14"></div>
+                    </div>
+                </div>
+
+                <button onclick="closeGradesModal()" class="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 active:scale-[0.98] transition-all flex-shrink-0">關閉</button>
+            </div>
+        </div>
+
         <!-- 🔐 修改密碼 Modal -->
         <div id="changePasswordModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-7 border border-slate-100" style="box-shadow: var(--shadow-elevated);">
