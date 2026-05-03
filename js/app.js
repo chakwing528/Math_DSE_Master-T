@@ -338,7 +338,7 @@ async function fetchSchoolGrades() {
             return;
         }
 
-        // 動態渲染成績卡片（含個人表現 + 同班統計）
+        // 動態渲染成績卡片（3 級配色：及格綠 / 不及格紅 / ABS 灰）
         let html = '<div class="space-y-3">';
         grades.forEach((g, idx) => {
             const examName = g.examName || `項目 ${idx + 1}`;
@@ -348,21 +348,53 @@ async function fetchSchoolGrades() {
             const rank = g.rank;
             const classSize = g.classSize;
             const stats = g.stats || {};
+            const isAbsent = (score === "ABS");
 
-            // 依百分比配色（無百分比則用中性灰）
+            // 🎨 3 級配色
+            //   ABS（缺考） → 灰
+            //   ≥ 50%       → 綠（emerald）
+            //   < 50%       → 紅（rose）
             let palette;
-            if (pct === null)        palette = { headBg: '#f8fafc', border: '#e2e8f0', text: '#475569', accent: '#6366f1', accentBg: '#eef2ff' };
-            else if (pct >= 80)      palette = { headBg: '#ecfdf5', border: '#a7f3d0', text: '#065f46', accent: '#10b981', accentBg: '#d1fae5' };
-            else if (pct >= 60)      palette = { headBg: '#eef2ff', border: '#c7d2fe', text: '#3730a3', accent: '#6366f1', accentBg: '#e0e7ff' };
-            else if (pct >= 40)      palette = { headBg: '#fffbeb', border: '#fde68a', text: '#92400e', accent: '#f59e0b', accentBg: '#fef3c7' };
-            else                     palette = { headBg: '#fff1f2', border: '#fecdd3', text: '#9f1239', accent: '#f43f5e', accentBg: '#ffe4e6' };
+            if (isAbsent) {
+                palette = { headBg: '#f1f5f9', border: '#cbd5e1', text: '#475569', accent: '#94a3b8', accentBg: '#e2e8f0' };
+            } else if (pct !== null && pct >= 50) {
+                palette = { headBg: '#ecfdf5', border: '#a7f3d0', text: '#065f46', accent: '#10b981', accentBg: '#d1fae5' };
+            } else {
+                palette = { headBg: '#fff1f2', border: '#fecdd3', text: '#9f1239', accent: '#f43f5e', accentBg: '#ffe4e6' };
+            }
 
-            // 排名徽章配色（前 3 名金/銀/銅，其餘用 accent）
-            let rankPalette;
-            if (rank === 1)      rankPalette = { bg: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)', text: '#ffffff', icon: '🥇' };
-            else if (rank === 2) rankPalette = { bg: 'linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%)', text: '#ffffff', icon: '🥈' };
-            else if (rank === 3) rankPalette = { bg: 'linear-gradient(135deg, #fca5a5 0%, #b45309 100%)', text: '#ffffff', icon: '🥉' };
-            else                 rankPalette = { bg: palette.accent, text: '#ffffff', icon: '🎯' };
+            // 排名徽章（ABS 不顯示排名）
+            let rankBadgeHtml = '';
+            if (!isAbsent && typeof rank === 'number') {
+                let rankPalette;
+                if (rank === 1)      rankPalette = { bg: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)', text: '#ffffff', icon: '🥇' };
+                else if (rank === 2) rankPalette = { bg: 'linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%)', text: '#ffffff', icon: '🥈' };
+                else if (rank === 3) rankPalette = { bg: 'linear-gradient(135deg, #fca5a5 0%, #b45309 100%)', text: '#ffffff', icon: '🥉' };
+                else                 rankPalette = { bg: palette.accent, text: '#ffffff', icon: '🎯' };
+                rankBadgeHtml = `
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-xs sm:text-sm flex-shrink-0" style="background: ${rankPalette.bg}; color: ${rankPalette.text}; box-shadow: 0 4px 10px -3px rgba(0,0,0,0.15);">
+                        <span>${rankPalette.icon}</span>
+                        <span>班排名</span>
+                        <span class="tabular-nums">${rank}<span class="opacity-70 mx-0.5">/</span>${classSize}</span>
+                    </div>`;
+            } else if (isAbsent) {
+                rankBadgeHtml = `
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-xs sm:text-sm flex-shrink-0" style="background: #94a3b8; color: #ffffff;">
+                        <span>📭</span><span>缺考紀錄</span>
+                    </div>`;
+            }
+
+            // 個人表現主體（ABS 顯示 "ABS" 字樣，無百分比 Badge）
+            const scoreSection = isAbsent
+                ? `<div class="flex items-baseline gap-2 min-w-0">
+                       <span class="font-black text-2xl sm:text-3xl tabular-nums leading-none" style="color: ${palette.text};">ABS</span>
+                       <span class="text-sm sm:text-base font-bold text-slate-400 tabular-nums">/ ${fullMark}</span>
+                   </div>`
+                : `<div class="flex items-baseline gap-2 min-w-0">
+                       <span class="font-black text-3xl sm:text-4xl tabular-nums leading-none" style="color: ${palette.text};">${score}</span>
+                       <span class="text-sm sm:text-base font-bold text-slate-400 tabular-nums">/ ${fullMark}</span>
+                       ${pct !== null ? `<span class="ml-1 px-2 py-0.5 rounded-md text-xs font-black tabular-nums" style="background: ${palette.accentBg}; color: ${palette.text};">${pct}%</span>` : ''}
+                   </div>`;
 
             html += `
                 <div class="rounded-2xl overflow-hidden" style="background: white; border: 1px solid ${palette.border}; box-shadow: var(--shadow-card);">
@@ -374,16 +406,8 @@ async function fetchSchoolGrades() {
 
                     <!-- 卡片中段：個人表現 -->
                     <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-                        <div class="flex items-baseline gap-2 min-w-0">
-                            <span class="font-black text-3xl sm:text-4xl tabular-nums leading-none" style="color: ${palette.text};">${score}</span>
-                            <span class="text-sm sm:text-base font-bold text-slate-400 tabular-nums">/ ${fullMark}</span>
-                            ${pct !== null ? `<span class="ml-1 px-2 py-0.5 rounded-md text-xs font-black tabular-nums" style="background: ${palette.accentBg}; color: ${palette.text};">${pct}%</span>` : ''}
-                        </div>
-                        <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-xs sm:text-sm flex-shrink-0" style="background: ${rankPalette.bg}; color: ${rankPalette.text}; box-shadow: 0 4px 10px -3px rgba(0,0,0,0.15);">
-                            <span>${rankPalette.icon}</span>
-                            <span>班排名</span>
-                            <span class="tabular-nums">${rank}<span class="opacity-70 mx-0.5">/</span>${classSize}</span>
-                        </div>
+                        ${scoreSection}
+                        ${rankBadgeHtml}
                     </div>
 
                     <!-- 卡片底部：全班統計 4 格 -->
