@@ -333,43 +333,77 @@ async function fetchSchoolGrades() {
                 <div class="text-center py-10 px-6 rounded-2xl" style="background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); border: 1px dashed #c7d2fe;">
                     <div class="text-5xl mb-3 opacity-50">📭</div>
                     <div class="text-slate-600 font-bold text-base">目前尚無你的成績紀錄</div>
-                    <div class="text-slate-400 text-xs mt-1.5 font-medium">老師可能未公布成績，請稍後再來查看</div>
+                    <div class="text-slate-400 text-xs mt-1.5 font-medium">老師可能未公布成績，或你該次缺考</div>
                 </div>`;
             return;
         }
 
-        // 動態渲染成績卡片（保留原始順序）
-        let html = '<div class="space-y-2.5">';
+        // 動態渲染成績卡片（含個人表現 + 同班統計）
+        let html = '<div class="space-y-3">';
         grades.forEach((g, idx) => {
             const examName = g.examName || `項目 ${idx + 1}`;
-            const rawScore = g.score;
-            const hasScore = rawScore !== "" && rawScore !== null && rawScore !== undefined;
-            const isNumeric = typeof rawScore === 'number';
-            const scoreDisplay = hasScore ? rawScore : '—';
+            const score = g.score;
+            const fullMark = g.fullMark;
+            const pct = (typeof g.percentage === 'number') ? g.percentage : null;
+            const rank = g.rank;
+            const classSize = g.classSize;
+            const stats = g.stats || {};
 
-            // 根據分數動態配色（僅當為數字時）
-            let palette = { bg: '#f8fafc', border: '#e2e8f0', text: '#475569', tag: '#94a3b8' };
-            if (isNumeric) {
-                if (rawScore >= 80)      palette = { bg: '#ecfdf5', border: '#a7f3d0', text: '#065f46', tag: '#10b981' };
-                else if (rawScore >= 60) palette = { bg: '#eef2ff', border: '#c7d2fe', text: '#3730a3', tag: '#6366f1' };
-                else if (rawScore >= 40) palette = { bg: '#fffbeb', border: '#fde68a', text: '#92400e', tag: '#f59e0b' };
-                else                     palette = { bg: '#fff1f2', border: '#fecdd3', text: '#9f1239', tag: '#f43f5e' };
-            } else if (!hasScore) {
-                palette = { bg: '#f8fafc', border: '#e2e8f0', text: '#94a3b8', tag: '#cbd5e1' };
-            }
+            // 依百分比配色（無百分比則用中性灰）
+            let palette;
+            if (pct === null)        palette = { headBg: '#f8fafc', border: '#e2e8f0', text: '#475569', accent: '#6366f1', accentBg: '#eef2ff' };
+            else if (pct >= 80)      palette = { headBg: '#ecfdf5', border: '#a7f3d0', text: '#065f46', accent: '#10b981', accentBg: '#d1fae5' };
+            else if (pct >= 60)      palette = { headBg: '#eef2ff', border: '#c7d2fe', text: '#3730a3', accent: '#6366f1', accentBg: '#e0e7ff' };
+            else if (pct >= 40)      palette = { headBg: '#fffbeb', border: '#fde68a', text: '#92400e', accent: '#f59e0b', accentBg: '#fef3c7' };
+            else                     palette = { headBg: '#fff1f2', border: '#fecdd3', text: '#9f1239', accent: '#f43f5e', accentBg: '#ffe4e6' };
+
+            // 排名徽章配色（前 3 名金/銀/銅，其餘用 accent）
+            let rankPalette;
+            if (rank === 1)      rankPalette = { bg: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)', text: '#ffffff', icon: '🥇' };
+            else if (rank === 2) rankPalette = { bg: 'linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%)', text: '#ffffff', icon: '🥈' };
+            else if (rank === 3) rankPalette = { bg: 'linear-gradient(135deg, #fca5a5 0%, #b45309 100%)', text: '#ffffff', icon: '🥉' };
+            else                 rankPalette = { bg: palette.accent, text: '#ffffff', icon: '🎯' };
 
             html += `
-                <div class="rounded-xl p-3.5 sm:p-4 flex items-center justify-between gap-3" style="background: ${palette.bg}; border: 1px solid ${palette.border};">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <span class="w-2 h-10 rounded-full flex-shrink-0" style="background: ${palette.tag};"></span>
-                        <div class="min-w-0">
-                            <div class="text-[10px] font-bold tracking-widest uppercase" style="color: ${palette.tag};">Exam</div>
-                            <div class="font-black text-sm sm:text-base truncate" style="color: ${palette.text};">${examName}</div>
+                <div class="rounded-2xl overflow-hidden" style="background: white; border: 1px solid ${palette.border}; box-shadow: var(--shadow-card);">
+                    <!-- 卡片頂部：測驗名稱 -->
+                    <div class="px-4 py-2.5 flex items-center gap-2" style="background: ${palette.headBg}; border-bottom: 1px solid ${palette.border};">
+                        <span class="w-1.5 h-5 rounded-full" style="background: ${palette.accent};"></span>
+                        <h4 class="font-black text-sm sm:text-base" style="color: ${palette.text};">${examName}</h4>
+                    </div>
+
+                    <!-- 卡片中段：個人表現 -->
+                    <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+                        <div class="flex items-baseline gap-2 min-w-0">
+                            <span class="font-black text-3xl sm:text-4xl tabular-nums leading-none" style="color: ${palette.text};">${score}</span>
+                            <span class="text-sm sm:text-base font-bold text-slate-400 tabular-nums">/ ${fullMark}</span>
+                            ${pct !== null ? `<span class="ml-1 px-2 py-0.5 rounded-md text-xs font-black tabular-nums" style="background: ${palette.accentBg}; color: ${palette.text};">${pct}%</span>` : ''}
+                        </div>
+                        <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-xs sm:text-sm flex-shrink-0" style="background: ${rankPalette.bg}; color: ${rankPalette.text}; box-shadow: 0 4px 10px -3px rgba(0,0,0,0.15);">
+                            <span>${rankPalette.icon}</span>
+                            <span>班排名</span>
+                            <span class="tabular-nums">${rank}<span class="opacity-70 mx-0.5">/</span>${classSize}</span>
                         </div>
                     </div>
-                    <div class="text-right flex-shrink-0">
-                        <div class="font-black text-2xl sm:text-3xl tabular-nums leading-none" style="color: ${palette.text};">${scoreDisplay}</div>
-                        ${isNumeric ? `<div class="text-[10px] font-bold opacity-60 mt-0.5" style="color: ${palette.text};">分</div>` : ''}
+
+                    <!-- 卡片底部：全班統計 4 格 -->
+                    <div class="mx-3 mb-3 rounded-lg p-3 grid grid-cols-4 gap-2" style="background: #f8fafc; border: 1px solid #e2e8f0;">
+                        <div class="text-center min-w-0">
+                            <div class="text-[9px] sm:text-[10px] font-bold text-slate-400 tracking-wider uppercase">平均</div>
+                            <div class="font-black text-sm sm:text-base text-slate-700 tabular-nums truncate">${stats.avg}</div>
+                        </div>
+                        <div class="text-center min-w-0">
+                            <div class="text-[9px] sm:text-[10px] font-bold text-emerald-500 tracking-wider uppercase">最高</div>
+                            <div class="font-black text-sm sm:text-base text-emerald-700 tabular-nums truncate">${stats.max}</div>
+                        </div>
+                        <div class="text-center min-w-0">
+                            <div class="text-[9px] sm:text-[10px] font-bold text-indigo-500 tracking-wider uppercase">中位</div>
+                            <div class="font-black text-sm sm:text-base text-indigo-700 tabular-nums truncate">${stats.median}</div>
+                        </div>
+                        <div class="text-center min-w-0">
+                            <div class="text-[9px] sm:text-[10px] font-bold text-rose-500 tracking-wider uppercase">最低</div>
+                            <div class="font-black text-sm sm:text-base text-rose-700 tabular-nums truncate">${stats.min}</div>
+                        </div>
                     </div>
                 </div>`;
         });
