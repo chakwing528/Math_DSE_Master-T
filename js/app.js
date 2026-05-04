@@ -76,8 +76,47 @@ let quizIntegrity = { seed: "", chain: "", events: [] };
 
 let currentRecognizedLaTeX = "";
 
-function getStoredData(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
-function setStoredData(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+// 🌟 改用 sessionStorage：學校公用電腦關 Tab 自動登出；iPhone PWA 背景仍保留
+function getStoredData(key) { try { return sessionStorage.getItem(key) || ''; } catch (e) { return ''; } }
+function setStoredData(key, value) { try { sessionStorage.setItem(key, value); } catch (e) {} }
+
+// ✏️ 開啟手寫確認視窗（同時將 LaTeX 填入可編輯框）
+function showHwConfirmUI() {
+    const confirmUI = document.getElementById('hw-confirm-ui');
+    const mathDiv = document.getElementById('hw-confirm-math');
+    const editInput = document.getElementById('hw-latex-edit');
+    if (mathDiv) mathDiv.innerHTML = `\\( \\displaystyle ${currentRecognizedLaTeX} \\)`;
+    if (editInput) editInput.value = currentRecognizedLaTeX;
+    if (confirmUI) confirmUI.classList.remove('hidden');
+    if (typeof renderMath === 'function') renderMath();
+
+    // 一次性綁定即時更新監聽
+    if (editInput && !editInput.dataset.boundLive) {
+        editInput.addEventListener('input', function() {
+            currentRecognizedLaTeX = this.value;
+            const md = document.getElementById('hw-confirm-math');
+            if (md) md.innerHTML = `\\( \\displaystyle ${currentRecognizedLaTeX} \\)`;
+            if (typeof renderMath === 'function') renderMath();
+        });
+        editInput.dataset.boundLive = '1';
+    }
+}
+
+// 👁️ 密碼顯示 / 隱藏切換
+window.togglePasswordVisibility = function() {
+    const inp = document.getElementById('loginPwd');
+    const icon = document.getElementById('loginPwdEyeIcon');
+    if (!inp || !icon) return;
+    const showing = inp.type === 'text';
+    inp.type = showing ? 'password' : 'text';
+    if (showing) {
+        // 切回隱藏：顯示「閉眼」icon
+        icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>`;
+    } else {
+        // 顯示中：改為「開眼」icon
+        icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>`;
+    }
+};
 
 // 🎬 畫面切換時播放 fade+slide enter 動畫
 function showScreen(id) {
@@ -1070,9 +1109,12 @@ window.skipQuestion = function() {
 };
 
 function loadQuestion() {
-    attemptsCount = 0; 
-    currentRecognizedLaTeX = ""; 
-    
+    attemptsCount = 0;
+    currentRecognizedLaTeX = "";
+    // 清空可編輯 LaTeX 輸入框
+    const _latexEdit = document.getElementById('hw-latex-edit');
+    if (_latexEdit) _latexEdit.value = '';
+
     const q = questionBank[currentQuestionIndex];
     if(!q) return;
     
@@ -1129,14 +1171,22 @@ function loadQuestion() {
             const kbInput = document.getElementById('keyboard-math-input');
             if (kbInput) kbInput.value = "";
 
-            // 重置相機區
+            // 重置相機區 + 銷毀 Cropper 實例（避免記憶體洩漏）
+            if (window._cropperInstance) {
+                try { window._cropperInstance.destroy(); } catch(_){}
+                window._cropperInstance = null;
+            }
             const camPreview = document.getElementById('camera-preview');
             const camPlaceholder = document.getElementById('camera-placeholder');
             const camRecBtn = document.getElementById('camera-recognize-btn');
+            const camRetakeBtn = document.getElementById('camera-retake-btn');
+            const camOpenBtn2 = document.getElementById('camera-open-btn');
             const camFileInput = document.getElementById('camera-file-input');
             if (camPreview) { camPreview.src = ''; camPreview.classList.add('hidden'); }
             if (camPlaceholder) camPlaceholder.classList.remove('hidden');
             if (camRecBtn) { camRecBtn.classList.add('hidden'); camRecBtn.disabled = false; }
+            if (camRetakeBtn) { camRetakeBtn.classList.add('hidden'); camRetakeBtn.disabled = false; }
+            if (camOpenBtn2) { camOpenBtn2.classList.remove('hidden'); camOpenBtn2.disabled = false; }
             if (camFileInput) camFileInput.value = '';
 
             switchInputMode('draw'); // 👈 🌟 修改這裡：改為預設手寫模式
@@ -1406,10 +1456,38 @@ function setupCanvasEvents() {
             const preview = document.getElementById('camera-preview');
             const placeholder = document.getElementById('camera-placeholder');
             const camRecBtn = document.getElementById('camera-recognize-btn');
-            if (preview) { preview.src = e.target.result; preview.classList.remove('hidden'); }
+            const camRetakeBtn = document.getElementById('camera-retake-btn');
+            const camOpenBtn = document.getElementById('camera-open-btn');
+
             if (placeholder) placeholder.classList.add('hidden');
+            if (camOpenBtn) camOpenBtn.classList.add('hidden');
             if (camRecBtn) { camRecBtn.classList.remove('hidden'); camRecBtn.disabled = false; }
+            if (camRetakeBtn) { camRetakeBtn.classList.remove('hidden'); camRetakeBtn.disabled = false; }
             document.getElementById('camera-container')?.classList.remove('border-green-500', 'border-red-400');
+
+            if (!preview) return;
+            // 銷毀舊 Cropper 實例避免記憶體洩漏
+            if (window._cropperInstance) {
+                try { window._cropperInstance.destroy(); } catch(_){}
+                window._cropperInstance = null;
+            }
+            preview.classList.remove('hidden');
+            preview.src = e.target.result;
+            // 等 image 完整載入後再啟動 Cropper（getCroppedCanvas 才能正確輸出）
+            preview.onload = function() {
+                if (typeof Cropper === 'undefined') return;
+                window._cropperInstance = new Cropper(preview, {
+                    viewMode: 1,
+                    autoCropArea: 1,
+                    background: false,
+                    movable: true,
+                    rotatable: false,
+                    scalable: false,
+                    zoomable: true,
+                    responsive: true,
+                    checkOrientation: true
+                });
+            };
         };
         reader.readAsDataURL(file);
     });
@@ -1498,9 +1576,7 @@ async function startRecognitionPhase() {
             if (mathDiv) mathDiv.insertAdjacentHTML('beforebegin', warningHtml);
         }
 
-        if (mathDiv) mathDiv.innerHTML = `\\( \\displaystyle ${currentRecognizedLaTeX} \\)`;
-        if (confirmUI) confirmUI.classList.remove('hidden');
-        renderMath();
+        showHwConfirmUI();
         
     } catch (err) {
         console.error(err);
@@ -1559,9 +1635,7 @@ async function startKeyboardRecognitionPhase() {
             if (mathDiv) mathDiv.insertAdjacentHTML('beforebegin', warningHtml);
         }
 
-        if (mathDiv) mathDiv.innerHTML = `\\( \\displaystyle ${currentRecognizedLaTeX} \\)`;
-        if (confirmUI) confirmUI.classList.remove('hidden');
-        renderMath();
+        showHwConfirmUI();
         
     } catch (err) {
         console.error(err);
@@ -1573,40 +1647,68 @@ async function startKeyboardRecognitionPhase() {
 }
 
 // 📷 處理「相機拍照」辨識
-async function startCameraRecognitionPhase() {
+// 🔄 重新拍攝：銷毀 Cropper、清空 file input、恢復 placeholder
+window.retakeCameraPhoto = function() {
+    if (window._cropperInstance) {
+        try { window._cropperInstance.destroy(); } catch(_){}
+        window._cropperInstance = null;
+    }
+    const preview = document.getElementById('camera-preview');
+    const placeholder = document.getElementById('camera-placeholder');
+    const camRecBtn = document.getElementById('camera-recognize-btn');
+    const camRetakeBtn = document.getElementById('camera-retake-btn');
+    const camOpenBtn = document.getElementById('camera-open-btn');
     const fileInput = document.getElementById('camera-file-input');
-    const file = fileInput && fileInput.files && fileInput.files[0];
-    if (!file) { alert("請先拍攝或選擇一張相片！"); return; }
+
+    if (preview) { preview.src = ''; preview.classList.add('hidden'); }
+    if (placeholder) placeholder.classList.remove('hidden');
+    if (camRecBtn) camRecBtn.classList.add('hidden');
+    if (camRetakeBtn) camRetakeBtn.classList.add('hidden');
+    if (camOpenBtn) camOpenBtn.classList.remove('hidden');
+    if (fileInput) fileInput.value = '';
+    document.getElementById('camera-container')?.classList.remove('border-green-500', 'border-red-400');
+};
+
+async function startCameraRecognitionPhase() {
+    const cropper = window._cropperInstance;
+    if (!cropper) { alert("請先拍攝或選擇一張相片！"); return; }
 
     const camRecBtn = document.getElementById('camera-recognize-btn');
     const camOpenBtn = document.getElementById('camera-open-btn');
+    const camRetakeBtn = document.getElementById('camera-retake-btn');
     const loadingDiv = document.getElementById('global-loading');
     const loadingText = document.getElementById('global-loading-text');
 
     if (camRecBtn) camRecBtn.disabled = true;
     if (camOpenBtn) camOpenBtn.disabled = true;
+    if (camRetakeBtn) camRetakeBtn.disabled = true;
     if (loadingText) loadingText.innerHTML = "AI 正在辨識你的相片...<br><span class='text-sm font-normal text-slate-500'>傳送至 Mathpix 雲端處理中</span>";
     if (loadingDiv) loadingDiv.classList.remove('hidden');
     document.getElementById('camera-container')?.classList.remove('border-green-500', 'border-red-400');
 
     try {
-        // 壓縮圖片至最大 800px 寬，與畫板辨識保持一致
-        const base64Image = await new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = function() {
-                const MAX_WIDTH = 800;
-                let w = img.width, h = img.height;
-                if (w > MAX_WIDTH) { h = Math.round(h * MAX_WIDTH / w); w = MAX_WIDTH; }
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = w; tempCanvas.height = h;
-                const ctx = tempCanvas.getContext('2d');
-                ctx.fillStyle = "#FFFFFF";
-                ctx.fillRect(0, 0, w, h);
-                ctx.drawImage(img, 0, 0, w, h);
-                resolve(tempCanvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
-            };
-            img.onerror = reject;
-            img.src = URL.createObjectURL(file);
+        // 1️⃣ 取出使用者剪裁後的 Canvas
+        const croppedCanvas = cropper.getCroppedCanvas({
+            maxWidth: 1600,
+            maxHeight: 1600,
+            fillColor: '#ffffff',
+            imageSmoothingEnabled: true,
+            imageSmoothingQuality: 'high'
+        });
+        if (!croppedCanvas) throw new Error("剪裁失敗，請重新拍攝。");
+
+        // 2️⃣ 進一步壓縮至最大 800px 寬度（與畫板辨識保持一致）
+        const base64Image = await new Promise((resolve) => {
+            const MAX_WIDTH = 800;
+            let w = croppedCanvas.width, h = croppedCanvas.height;
+            if (w > MAX_WIDTH) { h = Math.round(h * MAX_WIDTH / w); w = MAX_WIDTH; }
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = w; tempCanvas.height = h;
+            const ctx = tempCanvas.getContext('2d');
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(croppedCanvas, 0, 0, w, h);
+            resolve(tempCanvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
         });
 
         const formData = new URLSearchParams();
@@ -1631,9 +1733,7 @@ async function startCameraRecognitionPhase() {
             if (mathDiv) mathDiv.insertAdjacentHTML('beforebegin', warningHtml);
         }
 
-        if (mathDiv) mathDiv.innerHTML = `\\( \\displaystyle ${currentRecognizedLaTeX} \\)`;
-        if (confirmUI) confirmUI.classList.remove('hidden');
-        renderMath();
+        showHwConfirmUI();
 
     } catch (err) {
         console.error(err);
@@ -1641,6 +1741,7 @@ async function startCameraRecognitionPhase() {
         if (loadingDiv) loadingDiv.classList.add('hidden');
         if (camRecBtn) camRecBtn.disabled = false;
         if (camOpenBtn) camOpenBtn.disabled = false;
+        if (camRetakeBtn) camRetakeBtn.disabled = false;
     }
 }
 
@@ -1652,14 +1753,22 @@ window.rewriteHandwriting = function() {
         const el = document.getElementById(id);
         if (el) el.disabled = false;
     });
-    // 重置相機預覽狀態
+    // 重置相機預覽狀態 + 銷毀 Cropper（避免記憶體洩漏）
+    if (window._cropperInstance) {
+        try { window._cropperInstance.destroy(); } catch(_){}
+        window._cropperInstance = null;
+    }
     const preview = document.getElementById('camera-preview');
     const placeholder = document.getElementById('camera-placeholder');
     const camRecBtn = document.getElementById('camera-recognize-btn');
+    const camRetakeBtn = document.getElementById('camera-retake-btn');
+    const camOpenBtn = document.getElementById('camera-open-btn');
     const fileInput = document.getElementById('camera-file-input');
     if (preview) { preview.src = ''; preview.classList.add('hidden'); }
     if (placeholder) placeholder.classList.remove('hidden');
     if (camRecBtn) { camRecBtn.classList.add('hidden'); camRecBtn.disabled = false; }
+    if (camRetakeBtn) { camRetakeBtn.classList.add('hidden'); camRetakeBtn.disabled = false; }
+    if (camOpenBtn) { camOpenBtn.classList.remove('hidden'); camOpenBtn.disabled = false; }
     if (fileInput) fileInput.value = '';
     document.getElementById('camera-container')?.classList.remove('border-green-500', 'border-red-400');
 };
@@ -2542,13 +2651,41 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchConfig(); 
     setInterval(() => fetchConfig(true), 30000);
     
-    // 將 localStorage 暫存資料預填到登入框 (僅班別與學號，密碼為求安全不預填)
+    // 🌟 從 sessionStorage 預填登入欄位 + 靜默自動登入
     setTimeout(() => {
         const savedClass = getStoredData('dse_className');
-        const savedNum = getStoredData('dse_classNumber');
+        const savedNum   = getStoredData('dse_classNumber');
+        const savedPwd   = getStoredData('dse_password');
 
         const loginClassEl = document.getElementById('loginClass'); if (loginClassEl && savedClass) loginClassEl.value = savedClass;
-        const loginNumEl = document.getElementById('loginNum'); if (loginNumEl && savedNum) loginNumEl.value = savedNum;
+        const loginNumEl   = document.getElementById('loginNum');   if (loginNumEl   && savedNum)   loginNumEl.value   = savedNum;
+        const loginPwdEl   = document.getElementById('loginPwd');   if (loginPwdEl   && savedPwd)   loginPwdEl.value   = savedPwd;
+
+        // ⌨️ Enter 鍵直接觸發登入
+        ['loginClass', 'loginNum', 'loginPwd'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el.dataset.enterBound) {
+                el.addEventListener('keydown', (ev) => {
+                    if (ev.key === 'Enter') {
+                        ev.preventDefault();
+                        if (typeof loginApp === 'function') loginApp();
+                    }
+                });
+                el.dataset.enterBound = '1';
+            }
+        });
+
+        // 🚀 三值齊全 → 靜默自動登入（學校電腦關 Tab 後 sessionStorage 已清空，故不會誤觸）
+        if (savedClass && savedNum && savedPwd) {
+            const submitBtn = document.getElementById('loginSubmitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = "自動登入中...";
+            }
+            if (typeof loginApp === 'function') {
+                loginApp();
+            }
+        }
     }, 100);
 
     setupCanvasEvents();
